@@ -209,7 +209,7 @@ class World(object):
             if action and item and not word in self.backpack:
                 self.message = f"YOU DON'T HAVE '{ word }'"
 
-            if self.items["BATS"].hidden and \
+            if not self.items["BATS"].hidden and \
                self.room_idx == 13 and random.randint(0,3)==3 and verb != "USE":
                 self.message = "BATS ATTACKING!"
                 continue
@@ -294,7 +294,7 @@ class World(object):
             self.message = "YOU ARE STUCK"
             return
 
-        if "BOAT" in self.backpack and not self.room_idx in (47, 54, 54, 55):
+        if "BOAT" in self.backpack and not self.room_idx in (47, 53, 54, 55):
             self.message = "YOU CAN'T CARRY THE BOAT"
             return
 
@@ -362,7 +362,7 @@ class World(object):
         self.message = f"OK, '{ word }'"
         if "MAGIC SPELLS" in self.backpack and word == "XZANFAR":
             self.message = "*MAGIC OCCURS*"
-            if self.room_idx == 45:
+            if self.room_idx != 45:
                 self.room_idx = random.randint(0,63)
             else:
                 self.items["XZANFAR"].hidden = True
