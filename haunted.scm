@@ -561,7 +561,7 @@
          (set-item-value! (find-item 'ring) #f)
          "That's creepy")
         (else
-         "I can't open it")))
+         "You can't open it.")))
 
 (define (handle-examine room verb word)
   (cond ((and (eq? *location* 'cupboard)
@@ -584,7 +584,7 @@
         ((equal? word "coffin")
          (handle-open room verb word))
         (else
-         "I can't examine that")))
+         "You cannot examine that.")))
 
 (define (handle-read room verb word)
   (cond ((and (eq? *location* 'evil-library)
@@ -599,7 +599,7 @@
               (item-in-backpack? (find-item 'scroll)))
          "The script is in an alien tongue")
         (else
-         "I cannot read it")))
+         "You cannot read it.")))
 
 (define (random-choice lst)
     (list-ref lst (random (length lst))))
