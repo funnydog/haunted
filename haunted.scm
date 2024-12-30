@@ -869,11 +869,6 @@
                (= (random 2) 0))
       (set-item-value! (find-item 'ghosts) #t))
 
-    (when *light-on*
-      (set! *light-time* (- *light-time* 1))
-      (when (= *light-time* 0)
-        (set! *light-on* #f)))
-
     ;; prompt
     (format #t ">>> ")
     (let* ((query (game-read))
@@ -889,12 +884,20 @@
                 ((not cmd)
                  (format #t "You can't ~a ~a~%" verb rest))
                 (else
-                 (format #t "~a~%" ((command-handler cmd) room verb rest)))))
+                 ;; update the light
+                 (when *light-on*
+                   (set! *light-on* (- *light-on* 1))
+                   (when (= *light-on* 0)
+                     (set! *light-on* #f)))
 
-        (when *light-on*
-          (when (= *light-time* 10)
-            (format #t "Your candle is waning!"))
-          (when (= *light-time* 1)
-            (format #t "Your candle is out")))
+                 ;; execute the command
+                 (format #t "~a~%" ((command-handler cmd) room verb rest))
 
-        (game-loop #f)))))
+                 ;; tell the user the light is waning
+                 (when *light-on*
+                   (when (= *light-time* 10)
+                     (format #t "Your candle is waning!"))
+                   (when (= *light-time* 0)
+                     (format #t "Your candle is out!"))))))
+
+    (game-loop #f)))))
