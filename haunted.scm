@@ -376,7 +376,8 @@
 
 ;; map function
 (define (make-dot rooms)
-  (let ((rooms (map cadr rooms)))
+  (let ((ids (map car rooms))
+        (rooms (map cadr rooms)))
     (define (sym->dotname sym)
       (list->string
        (map (lambda (c)
@@ -389,21 +390,21 @@
     ;; open the directed graph
     (format #t "digraph {~%")
     ;; print the nodes
-    (for-each (lambda (room)
+    (for-each (lambda (id room)
                 (format #t "~a[label=\"~a\"];~%"
-                        (sym->dotname (room-id room))
+                        (sym->dotname id)
                         (room-description room)))
-              rooms)
+              ids rooms)
     ;; print the edges
-    (for-each (lambda (room)
-                (let ((src (sym->dotname (room-id room))))
+    (for-each (lambda (id room)
+                (let ((src (sym->dotname id)))
                   (for-each (lambda (edge)
                               (format #t "~a -> ~a [label=\"~a\"];~%"
                                       src
                                       (sym->dotname (edge-location edge))
                                       (edge-direction edge)))
                             (room-exits room))))
-              rooms)
+              ids rooms)
     ;; close the directed graph
     (format #t "}~%")))
 
