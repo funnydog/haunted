@@ -336,18 +336,43 @@
 
         (new-room crumbling-clifftop
                   "crumbling clifftop"
-                  (west stone-arch))))
+                  (west stone-arch))
+
+        ;; NOTE: connected to barred-cellar after digging the bars
+        (new-room hole-in-wall
+                  "hole in the wall"
+                  (north slippery-steps)
+                  (south coffin-cellar)
+                  (east cliff-path-1))
+
+        ;; NOTE: connected to study after swinging the axe
+        (new-room study-secret-room
+                  "study with secret room"
+                  (north secret-room)
+                  (west evil-library))
+
+        ;; NOTE: connected to thick-door after unlocking the door
+        (new-room huge-open-door
+                  "Huge open door"
+                  (south marble-stairs)
+                  (west vaulted-hallway)
+                  (east trophy-room))))
+
+;; edge functions for exits
+(define (edge-direction edge)
+  (car edge))
+(define (edge-location edge)
+  (cadr edge))
 
 ;; functions to find rooms
 (define (find-room id)
   "Find a room by id"
   (cadr (or (assq id *rooms*) '(#f #f))))
 
-;; edge functions
-(define (edge-direction edge)
-  (car edge))
-(define (edge-location edge)
-  (cadr edge))
+(define (add-room! new-id room)
+  "Add a previous room with the new id"
+  (set! *rooms* (cons (list new-id room)
+                      *rooms*)))
 
 ;; map function
 (define (make-dot rooms)
@@ -620,9 +645,7 @@
            "You can't dig with bare hands.")
           ((and (eq? *location* 'barred-cellar)
                 (not (assq 'east (room-exits room))))
-           (set-room-description! room "Hole in the wall")
-           (set-room-exits! room (cons '(east cliff-path-1)
-                                       (room-exits room)))
+           (add-room! 'barred-cellar (find-room 'hole-in-wall))
            "Dug the bars out.")
           (else
            "You made a hole."))))
@@ -641,10 +664,9 @@
          (let ((axe (find-item 'axe)))
            (cond ((not (item-in-backpack? axe))
                   "No axe to swing.")
-                 ((eq? *location* 'study)
-                  (set-room-description! room "Study with secret room")
-                  (set-room-exits! room (cons '(north secret-room)
-                                              (room-exits room)))
+                 ((and (eq? *location* 'study)
+                       (not (assq 'north (room-exits room))))
+                  (add-room! 'study (find-room 'study-secret-room))
                   "You broke the thin wall.")
                  (else
                   "Woosh!."))))
@@ -715,12 +737,9 @@
   (let ((door (find-item 'door)))
     (cond ((and (eq? *location* 'thick-door)
                 (equal? word "door")
-                (not (item-value door))
+                (not (assq 'south (room-exits room)))
                 (item-in-backpack? (find-item 'key)))
-           (set-item-value! door #t)
-           (set-room-description! room "Huge open door")
-           (set-room-exits! room (cons '(south marble-stairs)
-                                       (room-exits room)))
+           (add-room! 'thick-door (find-room 'huge-open-door))
            "The key turns!")
           (else
            "Nothing to unlock."))))
