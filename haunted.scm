@@ -8,8 +8,8 @@
 ;; syntax rule to make a new room without quoting
 (define-syntax new-room
   (syntax-rules ()
-    ((_ id description . rooms)
-     `(id ,(make-room description (quote rooms))))))
+    ((_ id description rooms ...)
+     `(id ,(make-room description '(rooms ...))))))
 
 ;; rooms association list
 (define *rooms*
@@ -422,7 +422,7 @@
 (define-syntax new-item
   (syntax-rules ()
     ((_ id name location value)
-     `(id ,(make-item name (quote location) value)))))
+     `(id ,(make-item name 'location value)))))
 
 ;; items association list
 (define *items*
