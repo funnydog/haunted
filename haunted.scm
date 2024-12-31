@@ -504,6 +504,7 @@
 (define *location* 'iron-gate-path)
 (define *light-on* #f)
 (define *light-time* 60)
+(define *exit* #f)
 
 (define (handle-help room verb words)
   (format #f "Words i know:~%~{~a~%~}"
@@ -766,6 +767,10 @@
           (else
            (format #f "You have everything~%Return to the gate for the final score.")))))
 
+(define (handle-exit room verb word)
+  (set! *exit* #t)
+  "Bye!")
+
 ;; list of the allowed commands and their handler
 (define *allowed-commands*
   `((help ,handle-help)
@@ -803,7 +808,7 @@
     (leave ,handle-drop)
     (drop ,handle-drop)
     (score ,handle-score)
-    (exit #f)))
+    (exit ,handle-exit)))
 
 (define (command-id cmd)
   (car cmd))
@@ -846,59 +851,59 @@
   (cadr cmd))
 
 (define (game-loop)
-  ;; describe the room
-  (let* ((room (find-room *location*))
-         (items (filter (lambda (item) (not (item-value item)))
-                        (find-items-by-location *location*))))
+  (unless *exit*
+    ;; describe the room
+    (let* ((room (find-room *location*))
+           (items (filter (lambda (item) (not (item-value item)))
+                          (find-items-by-location *location*))))
 
-    ;; room description and exits
-    (format #t "Your location: ~a.~%Exits: ~{~a~^, ~}~%"
-            (room-description room)
-            (map edge-direction (room-exits room)))
+      ;; room description and exits
+      (format #t "Your location: ~a.~%Exits: ~{~a~^, ~}~%"
+              (room-description room)
+              (map edge-direction (room-exits room)))
 
-    ;; visible items
-    (when (not (null? items))
-      (format #t "You see ~{a ~a~^, ~}.~%"
-              (map item-name items)))
+      ;; visible items
+      (when (not (null? items))
+        (format #t "You see ~{a ~a~^, ~}.~%"
+                (map item-name items)))
 
-    ;; update the game state
-    (when (and (eq? *location* 'cobwebby-room)
-               (not (item-value (find-item 'down)))
-               (= (random 2) 0))
-      (set-item-value! (find-item 'ghosts) #t))
+      ;; update the game state
+      (when (and (eq? *location* 'cobwebby-room)
+                 (not (item-value (find-item 'down)))
+                 (= (random 2) 0))
+        (set-item-value! (find-item 'ghosts) #t))
 
-    ;; prompt
-    (format #t ">>> ")
-    (let* ((query (game-read))
-           (verb (query-verb query))
-           (rest (query-rest query)))
-      (unless (eq? verb 'exit)
-        (let ((cmd (assq verb *allowed-commands*)))
-          (cond ((and (eq? *location* 'rear-turret-room)
-                      (not (item-value (find-item 'bats)))
-                      (not (eq? verb 'use))
-                      (= (random 3) 0))
-                 (format #t "Bats attacking!~%"))
-                ((not cmd)
-                 (format #t "You can't ~a ~a~%" verb rest))
-                (else
-                 ;; update the light
-                 (when *light-on*
-                   (set! *light-on* (- *light-on* 1))
-                   (when (= *light-on* 0)
-                     (set! *light-on* #f)))
+      ;; prompt
+      (format #t ">>> ")
+      (let* ((query (game-read))
+             (verb (query-verb query))
+             (rest (query-rest query))
+             (cmd (assq verb *allowed-commands*)))
+        (cond ((and (eq? *location* 'rear-turret-room)
+                    (not (item-value (find-item 'bats)))
+                    (not (eq? verb 'use))
+                    (= (random 3) 0))
+               (format #t "Bats attacking!~%"))
+              ((not cmd)
+               (format #t "You can't ~a ~a~%" verb rest))
+              (else
+               ;; update the light
+               (when *light-on*
+                 (set! *light-on* (- *light-on* 1))
+                 (when (= *light-on* 0)
+                   (set! *light-on* #f)))
 
-                 ;; execute the command
-                 (format #t "~a~%" ((command-handler cmd) room verb rest))
+               ;; execute the command
+               (format #t "~a~%" ((command-handler cmd) room verb rest))
 
-                 ;; tell the user the light is waning
-                 (when *light-on*
-                   (when (= *light-time* 10)
-                     (format #t "Your candle is waning!"))
-                   (when (= *light-time* 0)
-                     (format #t "Your candle is out!"))))))
+               ;; tell the user the light is waning
+               (when *light-on*
+                 (when (= *light-time* 10)
+                   (format #t "Your candle is waning!"))
+                 (when (= *light-time* 0)
+                   (format #t "Your candle is out!"))))))
 
-    (game-loop)))))
+      (game-loop))))
 
 (room-check *rooms*)
 (item-check *items* *rooms*)
