@@ -460,8 +460,7 @@
         (new-item coffin "coffin" #f #f)
         (new-item books "books" #f #f)
         (new-item xzanfar "xzanfar" #f #f)
-        (new-item wall "wall" #f #f)
-        (new-item spells "spells" #f #f)))
+        (new-item wall "wall" #f #f)))
 
 ;; functions to find items
 (define (find-item id)
