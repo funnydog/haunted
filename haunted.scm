@@ -856,41 +856,51 @@
 
 (define (game-loop)
   (unless *exit*
-    ;; describe the room
-    (let* ((room (find-room *location*))
-           (items (filter (lambda (item) (not (item-value item)))
-                          (find-items-by-location *location*))))
-
+    (let ((room (find-room *location*)))
+      ;; PRINT
       ;; room description and exits
-      (format #t "Your location: ~a.~%Exits: ~{~a~^, ~}~%"
-              (room-description room)
-              (map edge-direction (room-exits room)))
+      (format #t "Your location: ~a.~%" (room-description room))
+      (format #t "Exits: ~{~a~^, ~}~%" (map edge-direction (room-exits room)))
 
       ;; visible items
-      (when (not (null? items))
-        (format #t "You see ~{a ~a~^, ~}.~%"
-                (map item-name items)))
+      (let ((visible-items (filter (lambda (item)
+                                     (not (item-value item)))
+                                   (find-items-by-location *location*))))
+        (when (not (null? visible-items))
+          (format #t "You see: ~{~a~^, ~}.~%"
+                  (map item-name visible-items))))
 
-      ;; update the game state
-      (when (and (eq? *location* 'cobwebby-room)
-                 (not (item-value (find-item 'down)))
-                 (= (random 2) 0))
-        (set-item-value! (find-item 'ghosts) #t))
+      ;; candle status
+      (when *light-on*
+        (when (= *light-time* 10)
+          (format #t "Your candle is waning!"))
+        (when (= *light-time* 1)
+          (format #t "Your candle is out!")))
 
-      ;; prompt
+      ;; READ
       (format #t ">>> ")
       (let* ((query (game-read))
              (verb (query-verb query))
              (rest (query-rest query))
              (cmd (assq verb *allowed-commands*)))
+
+        ;; EVAL
         (cond ((and (eq? *location* 'rear-turret-room)
                     (not (item-value (find-item 'bats)))
                     (not (eq? verb 'use))
                     (= (random 3) 0))
+               ;; NOTE: bats prevent any command but 'use
                (format #t "Bats attacking!~%"))
               ((not cmd)
                (format #t "You can't ~a ~a~%" verb rest))
               (else
+               ;; set ghosts with a 50% chance in cobwebby-room unless
+               ;; they have been vacuumed already
+               (when (and (eq? *location* 'cobwebby-room)
+                          (not (item-value (find-item 'down)))
+                          (= (random 2) 0))
+                 (set-item-value! (find-item 'ghosts) #t))
+
                ;; update the light
                (when *light-on*
                  (set! *light-on* (- *light-on* 1))
@@ -898,15 +908,9 @@
                    (set! *light-on* #f)))
 
                ;; execute the command
-               (format #t "~a~%" ((command-handler cmd) room verb rest))
+               (format #t "~a~%" ((command-handler cmd) room verb rest)))))
 
-               ;; tell the user the light is waning
-               (when *light-on*
-                 (when (= *light-time* 10)
-                   (format #t "Your candle is waning!"))
-                 (when (= *light-time* 0)
-                   (format #t "Your candle is out!"))))))
-
+      ;; LOOP
       (game-loop))))
 
 (room-check *rooms*)
