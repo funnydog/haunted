@@ -1,8 +1,9 @@
 ;; The Haunted House - scheme edition
 ;; Adapted from "Write your own adventure programs" by Usborne.
 
-;; room structure definition
-(define-structure (room description exits))
+;; room record definition
+(define-record-type room
+  (fields description exits))
 
 ;; syntax rule to make a new room without quoting
 (define-syntax new-room
@@ -408,8 +409,12 @@
     ;; close the directed graph
     (format #t "}~%")))
 
-;; item structure
-(define-structure (item name location value))
+;; item record definition
+(define-record-type item
+  (fields name
+          (mutable location)
+          (mutable value)))
+
 (define (item-in-backpack? item)
   (eq? (item-location item) 'backpack))
 
@@ -530,7 +535,7 @@
          (next (assq verb (room-exits room))))
     (cond ((and (eq? *location* 'blasted-tree)
                 (item-value (find-item 'rope)))
-           (set-item-value! (find-item 'rope) #f)
+           (item-value-set! (find-item 'rope) #f)
            "CRASH!!! You fell out of the tree")
           ((and (eq? *location* 'upper-gallery)
                 (item-value (find-item 'ghosts)))
@@ -573,21 +578,21 @@
           ((not (eq? (item-location item) *location*))
            "It isn't here")
           (else
-           (set-item-location! item 'backpack)
+           (item-location-set! item 'backpack)
            (format #f "You have the ~a" words)))))
 
 (define (handle-open room verb word)
   (cond ((and (eq? *location* 'study)
               (or (equal? word "drawer")
                   (equal? word "desk")))
-         (set-item-value! (find-item 'candle) #f)
+         (item-value-set! (find-item 'candle) #f)
          "Drawer open")
         ((and (eq? *location* 'thick-door)
               (equal? word "door"))
          "It's locked")
         ((and (eq? *location* 'coffin-cellar)
               (equal? word "coffin"))
-         (set-item-value! (find-item 'ring) #f)
+         (item-value-set! (find-item 'ring) #f)
          "That's creepy")
         (else
          "You can't open it.")))
@@ -595,7 +600,7 @@
 (define (handle-examine room verb word)
   (cond ((and (eq? *location* 'cupboard)
               (equal? word "coat"))
-         (set-item-value! (find-item 'key) #f)
+         (item-value-set! (find-item 'key) #f)
          "There is something here!")
         ((and (eq? *location* 'yard-by-rubbish)
               (equal? word "rubbish"))
@@ -640,7 +645,7 @@
         (else
            (if (not (eq? *location* 'cold-chamber))
                (set! *location* (random-choice (map car *rooms*)))
-               (set-item-value! (find-item 'xzanfar) #t))
+               (item-value-set! (find-item 'xzanfar) #t))
            "*** Magic Occurs ***")))
 
 (define (handle-dig room verb word)
@@ -684,10 +689,10 @@
           ((item-in-backpack? rope)
            "It isn't attached to anything!")
           ((item-value rope)
-           (set-item-value! rope #f)
+           (item-value-set! rope #f)
            "Going down.")
           (else
-           (set-item-value! rope #t)
+           (item-value-set! rope #t)
            "You see a thick forest and a cliff at south."))))
 
 (define (handle-light room verb word)
@@ -718,7 +723,7 @@
                 (not (item-value "bats")))
            "HISS...")
           (else
-           (set-item-value (find-item 'bats) #f)
+           (item-value-set (find-item 'bats) #f)
            "Pfft! Got them."))))
 
 (define (handle-use room verb word)
@@ -729,8 +734,8 @@
                   "No batteries for the vacuum.")
                  ((and (eq? *location* 'cobwebby-room)
                        (item-value ghosts))
-                  (set-item-value! ghosts #f)
-                  (set-item-value! (find-item 'down) #t)
+                  (item-value-set! ghosts #f)
+                  (item-value-set! (find-item 'down) #t)
                   "WHIZZ - Vacuumed the ghosts up!")
                  (else
                   "Nothing to vacuum."))))
@@ -755,7 +760,7 @@
           ((not (item-in-backpack? item))
            "No such object in your backpack.")
           (else
-           (set-item-location! item *location*)
+           (item-location-set! item *location*)
            "Done."))))
 
 (define (handle-score room verb word)
@@ -899,7 +904,7 @@
                (when (and (eq? *location* 'cobwebby-room)
                           (not (item-value (find-item 'down)))
                           (= (random 2) 0))
-                 (set-item-value! (find-item 'ghosts) #t))
+                 (item-value-set! (find-item 'ghosts) #t))
 
                ;; update the light
                (when *light-on*
