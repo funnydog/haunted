@@ -918,3 +918,4 @@
 (format #t "Haunted House~%")
 (format #t "-------------~%")
 (game-loop)
+(exit 0)
