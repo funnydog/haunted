@@ -485,24 +485,40 @@
 
 ;; self check routines
 (define (room-check rooms)
-  "Check the connectivity of each room"
-  (for-each (lambda (room)
+  "Consistency check for the rooms"
+  (for-each (lambda (id room)
+              ;; connectivity check
               (for-each (lambda (edge)
                           (when (not (assq (edge-location edge) rooms))
                             (format #t "WARNING: room \"~a\" has a broken edge: ~a~%"
-                                    (room-id room)
+                                    (room-description room)
                                     edge)))
-                        (room-exits room)))
+                        (room-exits room))
+              ;; duplicated id check
+              (when (not (eq? (cadr (assq id rooms))
+                              room))
+                (format #t "WARNING: room \"~a\" with already used id '~a~%"
+                        (room-description room)
+                        id)))
+            (map car rooms)
             (map cadr rooms)))
 
 (define (item-check items rooms)
-  "Check if the location of the items exists"
-  (for-each (lambda (item)
+  "Consistency check for the items"
+  (for-each (lambda (id item)
+              ;; check the if the location of the item is valid
               (when (and (item-location item)
                          (not (assq (item-location item) rooms)))
                 (format #t "WARNING: object \"~a\" with unknown location: ~a~%"
                         (item-name item)
-                        (item-location item))))
+                        (item-location item)))
+              ;; check if the item id was already used
+              (when (not (eq? (cadr (assq id items))
+                              item))
+                (format #t "WARNING: item \"~a\" with already used id '~a~%"
+                        (item-name item)
+                        id)))
+            (map car items)
             (map cadr items)))
 
 ;; player variables
