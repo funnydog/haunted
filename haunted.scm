@@ -845,13 +845,7 @@
 (define (query-rest cmd)
   (cadr cmd))
 
-(define (game-loop start)
-  (when start
-    (room-check *rooms*)
-    (item-check *items* *rooms*)
-    (format #t "Haunted House~%")
-    (format #t "-------------~%"))
-
+(define (game-loop)
   ;; describe the room
   (let* ((room (find-room *location*))
          (items (filter (lambda (item) (not (item-value item)))
@@ -904,4 +898,10 @@
                    (when (= *light-time* 0)
                      (format #t "Your candle is out!"))))))
 
-    (game-loop #f)))))
+    (game-loop)))))
+
+(room-check *rooms*)
+(item-check *items* *rooms*)
+(format #t "Haunted House~%")
+(format #t "-------------~%")
+(game-loop)
