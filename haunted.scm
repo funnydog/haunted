@@ -843,7 +843,11 @@
              ,(format #f "~{~a~^ ~}" (cdr tokens)))))))
 
 (define (game-read)
-  (string->query (get-line (current-input-port))))
+  (let ((string (get-line (current-input-port))))
+    (cond ((string? string)
+           (string->query string))
+          (else
+           '(exit "")))))
 
 (define (query-verb cmd)
   (car cmd))
