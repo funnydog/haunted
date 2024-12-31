@@ -480,6 +480,7 @@
 
 ;; self check routines
 (define (room-check rooms)
+  "Check the connectivity of each room"
   (for-each (lambda (room)
               (for-each (lambda (edge)
                           (when (not (assq (edge-location edge) rooms))
@@ -490,6 +491,7 @@
             (map cadr rooms)))
 
 (define (item-check items rooms)
+  "Check if the location of the items exists"
   (for-each (lambda (item)
               (when (and (item-location item)
                          (not (assq (item-location item) rooms)))
@@ -764,6 +766,7 @@
           (else
            (format #f "You have everything~%Return to the gate for the final score.")))))
 
+;; list of the allowed commands and their handler
 (define *allowed-commands*
   `((help ,handle-help)
     (carrying ,handle-carrying)
