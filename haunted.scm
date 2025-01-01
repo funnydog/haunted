@@ -242,6 +242,13 @@
 
         (new-room study
                   "study with desk and hole in the wall"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'swing)
+                                    (equal? word "axe")
+                                    (item-in-backpack? (find-item 'axe)))
+                               (add-room! 'study (find-room 'study-secret-room))
+                               "You broke the thin wall.")
+                              (else #f)))
                   (west evil-library))
 
         (new-room cobwebby-room
@@ -691,17 +698,11 @@
                  (else
                   "No rope to swing."))))
         ((equal? word "axe")
-         (let ((axe (find-item 'axe)))
-           (cond ((not (item-in-backpack? axe))
-                  "No axe to swing.")
-                 ((and (eq? *location* 'study)
-                       (not (assq 'north (room-exits room))))
-                  (add-room! 'study (find-room 'study-secret-room))
-                  "You broke the thin wall.")
-                 (else
-                  "Woosh!."))))
-        (else
-         (format #f "No way to ~a ~a" verb word))))
+         (cond ((item-in-backpack? (item-in-backpack? axe))
+                "WHOOSH!")
+               (else
+                "No axe to swing.")))
+        (else #f)))
 
 (define (handle-climb room verb word)
   (let ((rope (find-item 'rope)))
