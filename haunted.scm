@@ -877,15 +877,23 @@
            (resolve-alias (cadr alias))))))
 
 (define (parse-query string)
-  (let parse-list ((strlist (string-split string char-whitespace?)))
-    (cond ((null? strlist)
-           (make-query #f ""))
-          ((and (equal? (car strlist) "go")
-                (not (null? (cdr strlist))))
-           (parse-list (cdr strlist)))
-          (else
-           (make-query (string->symbol (car strlist))
-                       (format #f "~{~a~^ ~}" (cdr strlist)))))))
+  (let ((length (string-length string)))
+    (if (and (> length 0)
+             (eq? (string-ref string 0) #\'))
+        ;; NOTE: special handling for 'words -> 'say words
+        (make-query 'say (substring string 1 length))
+        (let parse-list ((strlist (string-split string char-whitespace?)))
+          (cond ((null? strlist)
+                 (make-query #f ""))
+                ;; NOTE: special handling for the go command: it's basically
+                ;; ignored and the next token is used as a verb. So go north
+                ;; becomes simply north.
+                ((and (equal? (car strlist) "go")
+                      (not (null? (cdr strlist))))
+                 (parse-list (cdr strlist)))
+                (else
+                 (make-query (string->symbol (car strlist))
+                             (format #f "~{~a~^ ~}" (cdr strlist)))))))))
 
 (define (game-read)
   (let ((string (get-line (current-input-port))))
