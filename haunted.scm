@@ -803,17 +803,7 @@
 ;; list of the allowed commands and their handler
 (define *allowed-commands*
   `((help ,handle-help)
-    (carrying ,handle-carrying)
     (inventory ,handle-carrying)
-    (inv ,handle-carrying)
-    (i ,handle-carrying)
-    (go ,handle-go)
-    (n ,handle-go)
-    (s ,handle-go)
-    (w ,handle-go)
-    (e ,handle-go)
-    (u ,handle-go)
-    (d ,handle-go)
     (north ,handle-go)
     (south ,handle-go)
     (west ,handle-go)
@@ -821,7 +811,6 @@
     (up ,handle-go)
     (down ,handle-go)
     (get ,handle-get)
-    (take ,handle-get)
     (open ,handle-open)
     (examine ,handle-examine)
     (read ,handle-read)
@@ -834,10 +823,21 @@
     (spray ,handle-spray)
     (use ,handle-use)
     (unlock ,handle-unlock)
-    (leave ,handle-drop)
     (drop ,handle-drop)
     (score ,handle-score)
     (exit ,handle-exit)))
+
+(define *verb-aliases*
+  '((n north)
+    (s south)
+    (w west)
+    (e east)
+    (u up)
+    (d down)
+    (i inventory)
+    (carrying inventory)
+    (take get)
+    (leave drop)))
 
 (define (get-handler verb commands)
   (let ((record (assq verb commands)))
@@ -863,25 +863,36 @@
             (else
              (reverse (maybe-add a b parts)))))))
 
-(define (string->query string)
-  (let ((tokens (string-split string char-whitespace?)))
-    (cond ((null? tokens)
-           '(#f ""))
+(define (make-query verb words)
+  (cons verb  words))
+(define (query-verb cmd)
+  (car cmd))
+(define (query-rest cmd)
+  (cdr cmd))
+
+(define (resolve-alias verb)
+  (let ((alias (assq verb *verb-aliases*)))
+    (cond ((not alias) verb)
           (else
-           `(,(string->symbol (car tokens))
-             ,(format #f "~{~a~^ ~}" (cdr tokens)))))))
+           (resolve-alias (cadr alias))))))
+
+(define (parse-query string)
+  (let parse-list ((strlist (string-split string char-whitespace?)))
+    (cond ((null? strlist)
+           (make-query #f ""))
+          ((and (equal? (car strlist) "go")
+                (not (null? (cdr strlist))))
+           (parse-list (cdr strlist)))
+          (else
+           (make-query (string->symbol (car strlist))
+                       (format #f "~{~a~^ ~}" (cdr strlist)))))))
 
 (define (game-read)
   (let ((string (get-line (current-input-port))))
     (cond ((string? string)
-           (string->query string))
+           (parse-query string))
           (else
            '(exit "")))))
-
-(define (query-verb cmd)
-  (car cmd))
-(define (query-rest cmd)
-  (cadr cmd))
 
 (define (game-loop)
   (unless *exit*
