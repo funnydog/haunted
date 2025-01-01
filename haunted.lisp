@@ -849,3 +849,7 @@
 
     ;; LOOP
     (game-loop)))
+
+(format t "Haunted House~%")
+(format t "-------------~%")
+(game-loop)
