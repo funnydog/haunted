@@ -811,6 +811,7 @@
 
       ;; READ
       (princ ">>> ")
+      (finish-output)
       (let* ((query (game-read))
 	     (verb (query-verb query))
 	     (rest (query-rest query))
