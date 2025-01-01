@@ -5,6 +5,10 @@
 (define-record-type room
   (fields description exits))
 
+;; empty handler
+(define (empty-handler room verb words)
+  #f)
+
 ;; syntax rule to make a new room without quoting
 (define-syntax new-room
   (syntax-rules ()
@@ -528,7 +532,7 @@
 
 (define (handle-help room verb words)
   (format #f "Words i know:~%~{~a~%~}"
-          (map command-id *allowed-commands*)))
+          (map car *allowed-commands*)))
 
 (define (handle-carrying room verb words)
   (let ((items (map item-name (find-items-by-location 'backpack))))
@@ -830,10 +834,10 @@
     (score ,handle-score)
     (exit ,handle-exit)))
 
-(define (command-id cmd)
-  (car cmd))
-(define (command-handler cmd)
-  (cadr cmd))
+(define (get-handler verb commands)
+  (let ((record (assq verb commands)))
+    (or (and record (cadr record))
+        empty-handler)))
 
 (define (string-split string char-delimiter?)
   (define (maybe-add a b parts)
@@ -902,17 +906,16 @@
       (let* ((query (game-read))
              (verb (query-verb query))
              (rest (query-rest query))
-             (cmd (assq verb *allowed-commands*)))
+             (handler (get-handler verb *allowed-commands*)))
 
         ;; EVAL
-        (cond ((and (eq? *location* 'rear-turret-room)
+        (cond ((not verb))
+              ((and (eq? *location* 'rear-turret-room)
                     (not (item-value (find-item 'bats)))
                     (not (eq? verb 'use))
                     (= (random 3) 0))
                ;; NOTE: bats prevent any command but 'use
                (format #t "Bats attacking!~%"))
-              ((not cmd)
-               (format #t "You can't ~a ~a~%" verb rest))
               (else
                ;; set ghosts with a 50% chance in cobwebby-room unless
                ;; they have been vacuumed already
@@ -928,7 +931,9 @@
                    (set! *light-on* #f)))
 
                ;; execute the command
-               (format #t "~a~%" ((command-handler cmd) room verb rest)))))
+               (display (or (handler room verb rest)
+                            "You can't do that"))
+               (newline))))
 
       ;; LOOP
       (game-loop))))
