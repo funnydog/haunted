@@ -191,7 +191,7 @@
 				    "The key turns!")
 				   ((and (eq verb 'open)
 					 (string= rest "door"))
-				    "It's locked")))
+				    "It's locked.")))
 		      (west vaulted-hallway)
 		      (east trophy-room))
 
@@ -260,7 +260,7 @@
 					    (eq verb 'examine))
 					(string= rest "coffin"))
 				   (setf (item-value (find-item 'ring)) nil)
-				   "That's creepy")))
+				   "That's creepy!")))
 		      (north barred-cellar))
 
 	(new-location cliff-path-2
