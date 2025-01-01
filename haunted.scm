@@ -549,7 +549,7 @@
   (format #f "Words i know:~%~{~a~%~}"
           (map car *allowed-commands*)))
 
-(define (handle-carrying room verb words)
+(define (handle-inventory room verb words)
   (let ((items (map item-name (find-items-by-location 'backpack))))
     (cond ((null? items)
            "You are carrying nothing.")
@@ -803,7 +803,7 @@
 ;; list of the allowed commands and their handler
 (define *allowed-commands*
   `((help ,handle-help)
-    (inventory ,handle-carrying)
+    (inventory ,handle-inventory)
     (north ,handle-go)
     (south ,handle-go)
     (west ,handle-go)
