@@ -700,7 +700,7 @@
                  (else
                   "No rope to swing."))))
         ((equal? word "axe")
-         (cond ((item-in-backpack? (item-in-backpack? axe))
+         (cond ((item-in-backpack? (find-item 'axe))
                 "WHOOSH!")
                (else
                 "No axe to swing.")))
@@ -744,10 +744,10 @@
     (cond ((not (item-in-backpack? (find-item 'aerosol)))
            "You can't spray anything.")
           ((and (not (equal? word "bats"))
-                (not (item-value "bats")))
+                (not (item-value bats)))
            "HISS...")
           (else
-           (item-value-set (find-item 'bats) #f)
+           (item-value-set! bats #f)
            "Pfft! Got them."))))
 
 (define (handle-use room verb word)
@@ -767,18 +767,17 @@
          (format #f "You cannot ~a ~a." verb word))))
 
 (define (handle-unlock room verb word)
-  (let ((door (find-item 'door)))
-    (cond ((and (eq? *location* 'thick-door)
-                (equal? word "door")
-                (not (assq 'south (room-exits room)))
-                (item-in-backpack? (find-item 'key)))
-           (add-room! 'thick-door (find-room 'huge-open-door))
-           "The key turns!")
-          (else
-           "Nothing to unlock."))))
+  (cond ((and (eq? *location* 'thick-door)
+              (equal? word "door")
+              (not (assq 'south (room-exits room)))
+              (item-in-backpack? (find-item 'key)))
+         (add-room! 'thick-door (find-room 'huge-open-door))
+         "The key turns!")
+        (else
+         "Nothing to unlock.")))
 
 (define (handle-drop room verb word)
-  (let ((item (find-item-by-description word)))
+  (let ((item (find-item-by-name word)))
     (cond ((not item)
            "Cannot find it.")
           ((not (item-in-backpack? item))
@@ -792,6 +791,7 @@
     (cond ((not (equal? score 17))
            (format #f "Your score is ~a." score))
           ((eq? *location* 'iron-gate-path)
+           (set! *exit* #t)
            (format #f "Double score for reaching here!~%Your score is ~a." (* 2 score)))
           (else
            (format #f "You have everything~%Return to the gate for the final score.")))))
@@ -921,9 +921,9 @@
       ;; candle status
       (when *light-on*
         (when (= *light-time* 10)
-          (format #t "Your candle is waning!"))
+          (format #t "Your candle is waning!~%"))
         (when (= *light-time* 1)
-          (format #t "Your candle is out!")))
+          (format #t "Your candle is out!~%")))
 
       ;; READ
       (format #t ">>> ")
@@ -950,8 +950,8 @@
 
                ;; update the light
                (when *light-on*
-                 (set! *light-on* (- *light-on* 1))
-                 (when (= *light-on* 0)
+                 (set! *light-time* (- *light-time* 1))
+                 (when (= *light-time* 0)
                    (set! *light-on* #f)))
 
                ;; execute the command
