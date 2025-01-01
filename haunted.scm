@@ -176,6 +176,12 @@
 
         (new-room barred-cellar
                   "cellar with barred window"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'dig)
+                                    (item-in-backpack? (find-item 'shovel)))
+                               (add-room! 'barred-cellar (find-room 'hole-in-wall))
+                               "Dug the bars out.")
+                              (else #f)))
                   (north slippery-steps)
                   (south coffin-cellar))
 
@@ -680,10 +686,6 @@
   (let ((shovel (find-item 'shovel)))
     (cond ((not (item-in-backpack? shovel))
            "You can't dig with bare hands.")
-          ((and (eq? *location* 'barred-cellar)
-                (not (assq 'east (room-exits room))))
-           (add-room! 'barred-cellar (find-room 'hole-in-wall))
-           "Dug the bars out.")
           (else
            "You made a hole."))))
 
