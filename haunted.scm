@@ -36,6 +36,11 @@
 
         (new-room yard-by-rubbish
                   "yard by rubbish"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'examine)
+                                    (equal? word "rubbish"))
+                               "That's disgusting.")
+                              (else #f)))
                   (south scullery-door)
                   (west large-woodpile)
                   (east weedpatch))
@@ -165,6 +170,16 @@
 
         (new-room thick-door
                   "hall by thick wooden door"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'unlock)
+                                    (equal? word "door")
+                                    (item-in-backpack? (find-item 'key)))
+                               (add-room! 'thick-door (find-room 'huge-open-door))
+                               "The key turns!")
+                              ((and (eq? verb 'open)
+                                    (equal? word "door"))
+                               "It's locked.")
+                              (else #f)))
                   (west vaulted-hallway)
                   (east trophy-room))
 
@@ -192,6 +207,12 @@
 
         (new-room cupboard
                   "cupboard with hanging coat"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'examine)
+                                    (equal? word "coat"))
+                               (item-value-set! (find-item 'key) #f)
+                               "There is something here!")
+                              (else #f)))
                   (south closet))
 
         (new-room front-hall
@@ -223,6 +244,13 @@
 
         (new-room coffin-cellar
                   "deep cellar with coffin"
+                  :fn (lambda (room verb word)
+                        (cond ((and (or (eq? verb 'open)
+                                        (eq? verb 'examine))
+                                    (equal? word "coffin"))
+                               (item-value-set! (find-item 'ring) #f)
+                               "That's creepy!")
+                              (else #f)))
                   (north barred-cellar))
 
         (new-room cliff-path-2
@@ -243,6 +271,11 @@
 
         (new-room evil-library
                   "library of evil books"
+                  :fn (lambda (room verb word)
+                        (cond ((and (eq? verb 'examine)
+                                    (equal? word "books"))
+                               "They are demonic works.")
+                              (else #f)))
                   (north sitting-room)
                   (east study))
 
@@ -254,6 +287,9 @@
                                     (item-in-backpack? (find-item 'axe)))
                                (add-room! 'study (find-room 'study-secret-room))
                                "You broke the thin wall.")
+                              ((and (eq? verb 'examine)
+                                    (equal? word "wall"))
+                               "There is something beyond...")
                               (else #f)))
                   (west evil-library))
 
@@ -557,21 +593,12 @@
            (format #f "You are carrying: ~{~a~^, ~}." items)))))
 
 (define (handle-go room verb words)
-  (let* ((verb (cond ((eq? verb 'go)
-                      (car (find-item-by-name words)))
-                     ((eq? verb 'u) 'up)
-                     ((eq? verb 'd) 'down)
-                     ((eq? verb 'n) 'north)
-                     ((eq? verb 's) 'south)
-                     ((eq? verb 'w) 'west)
-                     ((eq? verb 'e) 'east)
-                     (else verb)))
-         (next (assq verb (room-exits room))))
+  (let ((next (assq verb (room-exits room))))
     (cond ((and (eq? *location* 'blasted-tree)
                 (item-value (find-item 'rope)))
            (item-value-set! (find-item 'rope) #f)
            "CRASH!!! You fell out of the tree")
-          ((and (eq? *location* 'upper-gallery)
+          ((and (eq? *location* 'cobwebby-room)
                 (item-value (find-item 'ghosts)))
            "Ghosts will not let you move!")
           ((and (eq? *location* 'cold-chamber)
@@ -621,48 +648,26 @@
                   (equal? word "desk")))
          (item-value-set! (find-item 'candle) #f)
          "Drawer open")
-        ((and (eq? *location* 'thick-door)
-              (equal? word "door"))
-         "It's locked")
-        ((and (eq? *location* 'coffin-cellar)
-              (equal? word "coffin"))
-         (item-value-set! (find-item 'ring) #f)
-         "That's creepy")
         (else
          "You can't open it.")))
 
 (define (handle-examine room verb word)
-  (cond ((and (eq? *location* 'cupboard)
-              (equal? word "coat"))
-         (item-value-set! (find-item 'key) #f)
-         "There is something here!")
-        ((and (eq? *location* 'yard-by-rubbish)
-              (equal? word "rubbish"))
-         "That's disgusting")
-        ((and (eq? *location* 'study)
+  (cond ((and (eq? *location* 'study)
               (or (equal? word "drawer")
                   (equal? word "desk")))
          "There is a drawer")
         ((or (equal? word "books")
              (equal? word "scroll"))
          (handle-read room verb word))
-        ((and (eq? *location* 'study)
-              (equal? word "wall"))
-         "There is something beyond...")
-        ((equal? word "coffin")
-         (handle-open room verb word))
         (else
          "You cannot examine that.")))
 
 (define (handle-read room verb word)
-  (cond ((and (eq? *location* 'evil-library)
-              (equal? word "books"))
-         "They are demonic works")
-        ((and (or (equal? word "spells")
+  (cond ((and (or (equal? word "spells")
                   (equal? word "magic spells"))
               (item-in-backpack? (find-item 'spells))
               (not (item-value (find-item 'xzanfar))))
-         "Use this word with care 'xzanfar'")
+         "Say this word with care 'xzanfar'")
         ((and (equal? word "scroll")
               (item-in-backpack? (find-item 'scroll)))
          "The script is in an alien tongue")
@@ -721,7 +726,7 @@
 
 (define (handle-light room verb word)
   (cond ((not (equal? word "candle"))
-         (format #f "You cannot light a ~a." word))
+         "Light what?")
         ((not (item-in-backpack? (find-item 'candle)))
          "No candle to light.")
         ((not (item-in-backpack? (find-item 'matches)))
@@ -766,25 +771,14 @@
         (else
          (format #f "You cannot ~a ~a." verb word))))
 
-(define (handle-unlock room verb word)
-  (cond ((and (eq? *location* 'thick-door)
-              (equal? word "door")
-              (not (assq 'south (room-exits room)))
-              (item-in-backpack? (find-item 'key)))
-         (add-room! 'thick-door (find-room 'huge-open-door))
-         "The key turns!")
-        (else
-         "Nothing to unlock.")))
-
 (define (handle-drop room verb word)
   (let ((item (find-item-by-name word)))
     (cond ((not item)
            "Cannot find it.")
-          ((not (item-in-backpack? item))
-           "No such object in your backpack.")
+          ((item-in-backpack? item)
+           "Done.")
           (else
-           (item-location-set! item *location*)
-           "Done."))))
+           "You don't carry that object."))))
 
 (define (handle-score room verb word)
   (let ((score (length (find-items-by-location 'backpack))))
@@ -822,7 +816,6 @@
     (unlight ,handle-unlight)
     (spray ,handle-spray)
     (use ,handle-use)
-    (unlock ,handle-unlock)
     (drop ,handle-drop)
     (score ,handle-score)
     (exit ,handle-exit)))
@@ -892,7 +885,7 @@
                       (not (null? (cdr strlist))))
                  (parse-list (cdr strlist)))
                 (else
-                 (make-query (string->symbol (car strlist))
+                 (make-query (resolve-alias (string->symbol (car strlist)))
                              (format #f "~{~a~^ ~}" (cdr strlist)))))))))
 
 (define (game-read)
