@@ -3,7 +3,7 @@
 
 ;; room record definition
 (define-record-type room
-  (fields description exits))
+  (fields description handler exits))
 
 ;; empty handler
 (define (empty-handler room verb words)
@@ -11,9 +11,11 @@
 
 ;; syntax rule to make a new room without quoting
 (define-syntax new-room
-  (syntax-rules ()
+  (syntax-rules (:fn)
+    ((_ id description :fn fn rooms ...)
+     `(id ,(make-room description fn '(rooms ...))))
     ((_ id description rooms ...)
-     `(id ,(make-room description '(rooms ...))))))
+     `(id ,(make-room description empty-handler '(rooms ...))))))
 
 ;; rooms association list
 (define *rooms*
@@ -931,7 +933,8 @@
                    (set! *light-on* #f)))
 
                ;; execute the command
-               (display (or (handler room verb rest)
+               (display (or ((room-handler room) room verb rest)
+                            (handler room verb rest)
                             "You can't do that"))
                (newline))))
 
