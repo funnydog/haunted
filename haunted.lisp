@@ -1,383 +1,360 @@
 ;; Haunted House - Common Lisp version
 ;; adapted from "Write your own adventure programs" by Usborne.
 
-;; location structure
-(defstruct location description handler edges)
-(defun find-location (id)
-  (cdr (assoc id *locations*)))
-
-(defun add-location (id location)
-  (setf *locations* (acons id location *locations*)))
-
-(defun edge-direction (edge)
-  (car edge))
-
-(defun edge-location (edge)
-  (cadr edge))
-
-(defun empty-handler (loc verb rest)
-  nil)
-
-;; macro to conveniently represent rooms
-(defmacro new-location (id description &rest rest)
-  (cond ((eq (car rest) :fn)
-         (let ((fn (cadr rest))
-               (rest (cddr rest)))
-           `(cons ',id (make-location :description ,description
-                                      :handler ,fn
-                                      :edges '(,@rest)))))
-        (t
-         `(cons ',id (make-location :description ,description
-                                    :handler #'empty-handler
-                                    :edges '(,@rest))))))
-
 ;; list of the locations
-(defparameter *locations*
-  (list (new-location dark-corner
-                      "dark corner"
-                      (south corner-of-house)
-                      (east overgrown-garden))
-
-        (new-location overgrown-garden
-                      "overgrown garden"
-                      (west dark-corner)
-                      (east large-woodpile))
-
-        (new-location large-woodpile
-                      "large woodpile"
-                      (west overgrown-garden)
-                      (east yard-by-rubbish))
-
-        (new-location yard-by-rubbish
-                      "yard by rubbish"
-                      (south scullery-door)
-                      (west large-woodpile)
-                      (east weedpatch))
-
-        (new-location weedpatch
-                      "weedpatch"
-                      (west yard-by-rubbish)
-                      (east forest))
-
-        (new-location forest
-                      "forest"
-                      (west weedpatch)
-                      (east thick-forest))
-
-        (new-location thick-forest
-                      "thick forest"
-                      (south clearing-by-house)
-                      (west forest)
-                      (east blasted-tree))
-
-        (new-location blasted-tree
-                      "blasted tree"
-                      (south path)
-                      (west thick-forest))
-
-        (new-location corner-of-house
-                      "corner of house"
-                      (north dark-corner)
-                      (south side-of-house))
-
-        (new-location entrance-to-kitchen
-                      "entrance to kitchen"
-                      (south back-of-hallway)
-                      (east kitchen))
-
-        (new-location kitchen
-                      "kitchen and grimy cooker"
-                      (west entrance-to-kitchen)
-                      (east scullery-door))
-
-        (new-location scullery-door
-                      "scullery door"
-                      (north yard-by-rubbish)
-                      (west kitchen))
-
-        (new-location room-with-dust
-                      "room with inches of dust"
-                      (east rear-turret-room)
-                      (down bottom-staircase))
-
-        (new-location rear-turret-room
-                      "rear turret room"
-                      (west room-with-dust))
-
-        (new-location clearing-by-house
-                      "clearing by house"
-                      (north thick-forest)
-                      (east path))
-
-        (new-location path
-                      "path"
-                      (north blasted-tree)
-                      (south clifftop)
-                      (west clearing-by-house))
-
-        (new-location side-of-house
-                      "side of the house"
-                      (north corner-of-house)
-                      (south crumbling-wall))
-
-        (new-location back-of-hallway
-                      "back of the hallway"
-                      (north entrance-to-kitchen)
-                      (south gloomy-passage))
-
-        (new-location dark-alcove
-                      "dark alcove"
-                      (south pool-of-light)
-                      (east small-dark-room))
-
-        (new-location small-dark-room
-                      "small dark room"
-                      (west dark-alcove)
-                      (east bottom-staircase))
-
-        (new-location bottom-staircase
-                      "bottom of a spiral staircase"
-                      (west small-dark-room)
-                      (up room-with-dust))
-
-        (new-location wide-passage
-                      "wide passage"
-                      (south trophy-room)
-                      (east slippery-steps))
-
-        (new-location slippery-steps
-                      "slippery steps"
-                      (south barred-cellar)
-                      (west wide-passage)
-                      (up wide-passage)
-                      (down barred-cellar))
-
-        (new-location clifftop
-                      "clifftop"
-                      (north path)
-                      (south cliff-path-1))
-
-        (new-location crumbling-wall
-                      "near a crumbling wall"
-                      (north side-of-house))
-
-        (new-location gloomy-passage
-                      "gloomy passage"
-                      (north back-of-hallway)
-                      (south front-hall))
-
-        (new-location pool-of-light
-                      "pool of light"
-                      (north dark-alcove)
-                      (south sitting-room)
-                      (east vaulted-hallway))
-
-        (new-location vaulted-hallway
-                      "impressive vaulted hallway"
-                      (west pool-of-light)
-                      (east thick-door))
-
-        (new-location thick-door
-                      "hall by thick wooden door"
-                      (west vaulted-hallway)
-                      (east trophy-room))
-
-        (new-location trophy-room
-                      "trophy room"
-                      (north wide-passage)
-                      (south dining-room)
-                      (west thick-door))
-
-        (new-location barred-cellar
-                      "cellar with barred window"
-                      (north slippery-steps)
-                      (south coffin-cellar))
-
-        (new-location cliff-path-1
-                      "cliff path"
-                      (north clifftop)
-                      (south cliff-path-2))
-
-        (new-location cupboard
-                      "cupboard with hanging coat"
-                      (south closet))
-
-        (new-location front-hall
-                      "front hall"
-                      (north gloomy-passage)
-                      (south front-lobby)
-                      (east sitting-room))
-
-        (new-location sitting-room
-                      "sitting room"
-                      (north pool-of-light)
-                      (south evil-library)
-                      (west front-hall))
-
-        (new-location secret-room
-                      "secret room"
-                      (south study))
-
-        (new-location marble-stairs
-                      "steep marble stairs"
-                      (north thick-door)
-                      (south cobwebby-room)
-                      (up cobwebby-room)
-                      (down thick-door))
-
-        (new-location dining-room
-                      "dining room"
-                      (north trophy-room))
-
-        (new-location coffin-cellar
-                      "deep cellar with coffin"
-                      (north barred-cellar))
-
-        (new-location cliff-path-2
-                      "cliff path"
-                      (north cliff-path-1)
-                      (south cliff-path-3))
-
-        (new-location closet
-                      "closet"
-                      (north cupboard)
-                      (east front-lobby))
-
-        (new-location front-lobby
-                      "front lobby"
-                      (north front-hall)
-                      (south front-porch)
-                      (west closet))
-
-        (new-location evil-library
-                      "library of evil books"
-                      (north sitting-room)
-                      (east study))
-
-        (new-location study
-                      "study with desk and hole in the wall"
-                      (west evil-library))
-
-        (new-location cobwebby-room
-                      "weird cobwebby room"
-                      (north marble-stairs)
-                      (south upper-gallery)
-                      (east cold-chamber))
-
-        (new-location cold-chamber
-                      "very cold chamber"
-                      (west cobwebby-room)
-                      (east spooky-room))
-
-        (new-location spooky-room
-                      "spooky room"
-                      (west cold-chamber))
-
-        (new-location cliff-path-3
-                      "cliff path by marsh"
-                      (north cliff-path-2)
-                      (south soggy-path))
-
-        (new-location verandah
-                      "rubble-strewn verandah"
-                      (south twisted-railings)
-                      (east front-porch))
-
-        (new-location front-porch
-                      "front porch"
-                      (north front-lobby)
-                      (south iron-gate-path)
-                      (west verandah))
-
-        (new-location front-tower
-                      "front tower"
-                      (east sloping-corridor))
-
-        (new-location sloping-corridor
-                      "sloping corridor"
-                      (west front-tower)
-                      (east upper-gallery))
-
-        (new-location upper-gallery
-                      "upper gallery"
-                      (north cobwebby-room)
-                      (west sloping-corridor))
-
-        (new-location marsh-by-wall
-                      "marsh by wall"
-                      (south fallen-brickwork))
-
-        (new-location marsh
-                      "marsh"
-                      (south stone-arch)
-                      (west marsh-by-wall))
-
-        (new-location soggy-path
-                      "soggy path"
-                      (north cliff-path-3)
-                      (west marsh))
-
-        (new-location twisted-railings
-                      "by twisted railings"
-                      (north verandah)
-                      (east iron-gate-path))
-
-        (new-location iron-gate-path
-                      "path through iron gate"
-                      (north front-porch)
-                      (west twisted-railings)
-                      (east railings))
-
-        (new-location railings
-                      "by railings"
-                      (west iron-gate-path)
-                      (east beneath-front-tower))
-
-        (new-location beneath-front-tower
-                      "beneath the front tower"
-                      (west railings)
-                      (east debris))
-
-        (new-location debris
-                      "debris from crumbling facade"
-                      (west beneath-front-tower)
-                      (east fallen-brickwork))
-
-        (new-location fallen-brickwork
-                      "large fallen brickwork"
-                      (north marsh-by-wall)
-                      (west debris)
-                      (east stone-arch))
-
-        (new-location stone-arch
-                      "rotten stone arch"
-                      (north marsh)
-                      (west fallen-brickwork)
-                      (east crumbling-clifftop))
-
-        (new-location crumbling-clifftop
-                      "crumbling clifftop"
-                      (west stone-arch))
-
-        ;; NOTE: connected to barred-cellar after digging the bars
-        (new-location hole-in-wall
-                      "hole in the wall"
-                      (north slippery-steps)
-                      (south coffin-cellar)
-                      (east cliff-path-1))
-
-        ;; NOTE: connected to study after swinging the axe
-        (new-location study-secret-room
-                      "study with secret room"
-                      (north secret-room)
-                      (west evil-library))
-
-        ;; NOTE: connected to thick-door after unlocking the door
-        (new-location huge-open-door
-                      "Huge open door"
-                      (south marble-stairs)
-                      (west vaulted-hallway)
-                      (east trophy-room))))
+(defparameter *nodes*
+  '((dark-corner
+     "dark corner"
+     (south corner-of-house)
+     (east overgrown-garden))
+
+    (overgrown-garden
+     "overgrown garden"
+     (west dark-corner)
+     (east large-woodpile))
+
+    (large-woodpile
+     "large woodpile"
+     (west overgrown-garden)
+     (east yard-by-rubbish))
+
+    (yard-by-rubbish
+     "yard by rubbish"
+     (south scullery-door)
+     (west large-woodpile)
+     (east weedpatch))
+
+    (weedpatch
+     "weedpatch"
+     (west yard-by-rubbish)
+     (east forest))
+
+    (forest
+     "forest"
+     (west weedpatch)
+     (east thick-forest))
+
+    (thick-forest
+     "thick forest"
+     (south clearing-by-house)
+     (west forest)
+     (east blasted-tree))
+
+    (blasted-tree
+     "blasted tree"
+     (south path)
+     (west thick-forest))
+
+    (corner-of-house
+     "corner of house"
+     (north dark-corner)
+     (south side-of-house))
+
+    (entrance-to-kitchen
+     "entrance to kitchen"
+     (south back-of-hallway)
+     (east kitchen))
+
+    (kitchen
+     "kitchen and grimy cooker"
+     (west entrance-to-kitchen)
+     (east scullery-door))
+
+    (scullery-door
+     "scullery door"
+     (north yard-by-rubbish)
+     (west kitchen))
+
+    (room-with-dust
+     "room with inches of dust"
+     (east rear-turret-room)
+     (down bottom-staircase))
+
+    (rear-turret-room
+     "rear turret room"
+     (west room-with-dust))
+
+    (clearing-by-house
+     "clearing by house"
+     (north thick-forest)
+     (east path))
+
+    (path
+     "path"
+     (north blasted-tree)
+     (south clifftop)
+     (west clearing-by-house))
+
+    (side-of-house
+     "side of the house"
+     (north corner-of-house)
+     (south crumbling-wall))
+
+    (back-of-hallway
+     "back of the hallway"
+     (north entrance-to-kitchen)
+     (south gloomy-passage))
+
+    (dark-alcove
+     "dark alcove"
+     (south pool-of-light)
+     (east small-dark-room))
+
+    (small-dark-room
+     "small dark room"
+     (west dark-alcove)
+     (east bottom-staircase))
+
+    (bottom-staircase
+     "bottom of a spiral staircase"
+     (west small-dark-room)
+     (up room-with-dust))
+
+    (wide-passage
+     "wide passage"
+     (south trophy-room)
+     (east slippery-steps))
+
+    (slippery-steps
+     "slippery steps"
+     (south barred-cellar)
+     (west wide-passage)
+     (up wide-passage)
+     (down barred-cellar))
+
+    (clifftop
+     "clifftop"
+     (north path)
+     (south cliff-path-1))
+
+    (crumbling-wall
+     "near a crumbling wall"
+     (north side-of-house))
+
+    (gloomy-passage
+     "gloomy passage"
+     (north back-of-hallway)
+     (south front-hall))
+
+    (pool-of-light
+     "pool of light"
+     (north dark-alcove)
+     (south sitting-room)
+     (east vaulted-hallway))
+
+    (vaulted-hallway
+     "impressive vaulted hallway"
+     (west pool-of-light)
+     (east thick-door))
+
+    (thick-door
+     "hall by thick wooden door"
+     (west vaulted-hallway)
+     (east trophy-room))
+
+    (trophy-room
+     "trophy room"
+     (north wide-passage)
+     (south dining-room)
+     (west thick-door))
+
+    (barred-cellar
+     "cellar with barred window"
+     (north slippery-steps)
+     (south coffin-cellar))
+
+    (cliff-path-1
+     "cliff path"
+     (north clifftop)
+     (south cliff-path-2))
+
+    (cupboard
+     "cupboard with hanging coat"
+     (south closet))
+
+    (front-hall
+     "front hall"
+     (north gloomy-passage)
+     (south front-lobby)
+     (east sitting-room))
+
+    (sitting-room
+     "sitting room"
+     (north pool-of-light)
+     (south evil-library)
+     (west front-hall))
+
+    (secret-room
+     "secret room"
+     (south study))
+
+    (marble-stairs
+     "steep marble stairs"
+     (north thick-door)
+     (south cobwebby-room)
+     (up cobwebby-room)
+     (down thick-door))
+
+    (dining-room
+     "dining room"
+     (north trophy-room))
+
+    (coffin-cellar
+     "deep cellar with coffin"
+     (north barred-cellar))
+
+    (cliff-path-2
+     "cliff path"
+     (north cliff-path-1)
+     (south cliff-path-3))
+
+    (closet
+     "closet"
+     (north cupboard)
+     (east front-lobby))
+
+    (front-lobby
+     "front lobby"
+     (north front-hall)
+     (south front-porch)
+     (west closet))
+
+    (evil-library
+     "library of evil books"
+     (north sitting-room)
+     (east study))
+
+    (study
+     "study with desk and hole in the wall"
+     (west evil-library))
+
+    (cobwebby-room
+     "weird cobwebby room"
+     (north marble-stairs)
+     (south upper-gallery)
+     (east cold-chamber))
+
+    (cold-chamber
+     "very cold chamber"
+     (west cobwebby-room)
+     (east spooky-room))
+
+    (spooky-room
+     "spooky room"
+     (west cold-chamber))
+
+    (cliff-path-3
+     "cliff path by marsh"
+     (north cliff-path-2)
+     (south soggy-path))
+
+    (verandah
+     "rubble-strewn verandah"
+     (south twisted-railings)
+     (east front-porch))
+
+    (front-porch
+     "front porch"
+     (north front-lobby)
+     (south iron-gate-path)
+     (west verandah))
+
+    (front-tower
+     "front tower"
+     (east sloping-corridor))
+
+    (sloping-corridor
+     "sloping corridor"
+     (west front-tower)
+     (east upper-gallery))
+
+    (upper-gallery
+     "upper gallery"
+     (north cobwebby-room)
+     (west sloping-corridor))
+
+    (marsh-by-wall
+     "marsh by wall"
+     (south fallen-brickwork))
+
+    (marsh
+     "marsh"
+     (south stone-arch)
+     (west marsh-by-wall))
+
+    (soggy-path
+     "soggy path"
+     (north cliff-path-3)
+     (west marsh))
+
+    (twisted-railings
+     "by twisted railings"
+     (north verandah)
+     (east iron-gate-path))
+
+    (iron-gate-path
+     "path through iron gate"
+     (north front-porch)
+     (west twisted-railings)
+     (east railings))
+
+    (railings
+     "by railings"
+     (west iron-gate-path)
+     (east beneath-front-tower))
+
+    (beneath-front-tower
+     "beneath the front tower"
+     (west railings)
+     (east debris))
+
+    (debris
+     "debris from crumbling facade"
+     (west beneath-front-tower)
+     (east fallen-brickwork))
+
+    (fallen-brickwork
+     "large fallen brickwork"
+     (north marsh-by-wall)
+     (west debris)
+     (east stone-arch))
+
+    (stone-arch
+     "rotten stone arch"
+     (north marsh)
+     (west fallen-brickwork)
+     (east crumbling-clifftop))
+
+    (crumbling-clifftop
+     "crumbling clifftop"
+     (west stone-arch))
+
+    ;; NOTE: connected to barred-cellar after digging the bars
+    (hole-in-wall
+     "hole in the wall"
+     (north slippery-steps)
+     (south coffin-cellar)
+     (east cliff-path-1))
+
+    ;; NOTE: connected to study after swinging the axe
+    (study-secret-room
+     "study with secret room"
+     (north secret-room)
+     (west evil-library))
+
+    ;; NOTE: connected to thick-door after unlocking the door
+    (huge-open-door
+     "Huge open door"
+     (south marble-stairs)
+     (west vaulted-hallway)
+     (east trophy-room))))
+
+;; location functions
+(defun location-name (loc)
+  (cadr (assoc loc *nodes*)))
+
+(defun location-edges (loc)
+  (cddr (assoc loc *nodes*)))
 
 ;; items
 (defstruct item name location value)
@@ -811,20 +788,20 @@
 
 (defun game-loop ()
   (unless *exit*
-    (let ((location (find-location *current-location*)))
+    (let ((loc *current-location*))
       ;; PRINT
       ;; location description
-      (format t "Your location: ~a.~%" (location-description location))
+      (format t "Your location: ~a.~%" (location-name loc))
       (format t "Exits: ~{~a~^, ~}.~%" (mapcar (lambda (edge)
                                                  (string-downcase
                                                   (prin1-to-string
                                                    (edge-direction edge))))
-                                               (location-edges location)))
+                                               (location-edges loc)))
 
       ;; visible items
       (let ((items (remove-if (lambda (item)
                                 (item-value item))
-                              (find-items-by-location *current-location*))))
+                              (find-items-by-location loc))))
         (when (not (null items))
           (format t "You see: ~{~a~^, ~}.~%" (mapcar #'item-name items))))
 
@@ -868,8 +845,7 @@
                    (setf *light-on* nil)))
 
                ;; execute the command
-               (princ (or (funcall (location-handler location) location verb rest)
-                          (funcall handler location verb rest)
+               (princ (or (funcall handler loc verb rest)
                           "You can't do that."))
                (fresh-line)))))
 
