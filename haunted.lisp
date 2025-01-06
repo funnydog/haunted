@@ -50,10 +50,6 @@
 
 	(new-location yard-by-rubbish
 		      "yard by rubbish"
-		      :fn (lambda (loc verb rest)
-			    (cond ((and (eq verb 'examine)
-					(string= rest "rubbish"))
-				   "That's disgusting.")))
 		      (south scullery-door)
 		      (west large-woodpile)
 		      (east weedpatch))
@@ -183,15 +179,6 @@
 
 	(new-location thick-door
 		      "hall by thick wooden door"
-		      :fn (lambda (loc verb rest)
-			    (cond  ((and (eq verb 'unlock)
-					 (string= rest "door")
-					 (item-in-backpack-p (find-item 'key)))
-				    (add-location 'thick-door (find-location 'huge-open-door))
-				    "The key turns!")
-				   ((and (eq verb 'open)
-					 (string= rest "door"))
-				    "It's locked.")))
 		      (west vaulted-hallway)
 		      (east trophy-room))
 
@@ -203,12 +190,6 @@
 
 	(new-location barred-cellar
 		      "cellar with barred window"
-		      :fn (lambda (room verb rest)
-			    (cond ((and (eq verb 'dig)
-					(item-in-backpack-p (find-item 'shovel)))
-				   (add-location 'barred-cellar
-						 (find-location 'hole-in-wall))
-				   "Dug the bars out.")))
 		      (north slippery-steps)
 		      (south coffin-cellar))
 
@@ -219,11 +200,6 @@
 
 	(new-location cupboard
 		      "cupboard with hanging coat"
-		      :fn (lambda (loc verb rest)
-			    (cond ((and (eq verb 'examine)
-					(string= rest "coat"))
-				   (setf (item-value (find-item 'key)) nil)
-				   "There is something here!")))
 		      (south closet))
 
 	(new-location front-hall
@@ -255,12 +231,6 @@
 
 	(new-location coffin-cellar
 		      "deep cellar with coffin"
-		      :fn (lambda (loc verb rest)
-			    (cond ((and (or (eq verb 'open)
-					    (eq verb 'examine))
-					(string= rest "coffin"))
-				   (setf (item-value (find-item 'ring)) nil)
-				   "That's creepy!")))
 		      (north barred-cellar))
 
 	(new-location cliff-path-2
@@ -281,26 +251,11 @@
 
 	(new-location evil-library
 		      "library of evil books"
-		      :fn (lambda (loc verb rest)
-			    (cond ((and (eq verb 'examine)
-					(string= rest "books"))
-				   "They are demonic works.")))
 		      (north sitting-room)
 		      (east study))
 
 	(new-location study
 		      "study with desk and hole in the wall"
-		      :fn (lambda (loc verb rest)
-			    (cond ((and (eq verb 'swing)
-					(string= rest "axe")
-					(item-in-backpack-p (find-item 'axe)))
-				   (add-location 'study
-						 (find-location 'study-secret-room))
-				   "You broke the thin wall.")
-				  ((and (eq verb 'examine)
-					(string= rest "wall"))
-				   "There is something beyond...")
-				  ))
 		      (west evil-library))
 
 	(new-location cobwebby-room
@@ -563,22 +518,44 @@
 		  (string= rest "desk")))
 	 (setf (item-value (find-item 'candle)) nil)
 	 "Drawer open")
+	((and (eq *current-location* 'thick-door)
+	      (string= rest "door"))
+	 "It's locked")
+	((and (eq *current-location* 'coffin-cellar)
+	      (string= rest "coffin"))
+	 (setf (item-value (find-item 'ring)) nil)
+	 "That's creepy")
 	(t
 	 "You can't open it.")))
 
 (defun handle-examine (loc verb rest)
-  (cond ((and (eq *current-location* 'study)
+  (cond ((and (eq *current-location* 'cupboard)
+	      (string= rest "coat"))
+	 (setf (item-value (find-item 'key)) nil)
+	 "There is something here!")
+	((and (eq *current-location* 'yard-by-rubbish)
+	      (string= rest "rubbish"))
+	 "That's disgusting.")
+	((and (eq *current-location* 'study)
 	      (or (string= rest "drawer")
 		  (string= rest "desk")))
 	 "There is a drawer.")
+	((and (eq *current-location* 'study)
+	      (string= rest "wall"))
+	 "There is something beyond...")
 	((or (string= rest "books")
 	     (string= rest "scroll"))
 	 (handle-read loc verb rest))
+	((string= rest "coffin")
+	 (handle-open loc verb rest))
 	(t
 	 "You cannot examine that.")))
 
 (defun handle-read (loc verb rest)
-  (cond ((and (or (string= rest "spells")
+  (cond ((and (eq *current-location* 'evil-library)
+	      (string= rest "books"))
+	 "They are demonic works.")
+	((and (or (string= rest "spells")
 		  (string= rest "magic spells"))
 	      (item-in-backpack-p (find-item 'spells))
 	      (not (item-value (find-item 'xzanfar))))
@@ -604,13 +581,24 @@
 
 (defun handle-dig (loc verb rest)
   (let ((shovel (find-item 'shovel)))
-    (cond (shovel
+    (cond ((and (eq loc 'barred-cellar)
+		(item-in-backpack-p shovel))
+	   (add-location 'barred-cellar
+			 (find-location 'hole-in-wall))
+	   "Dug the bars out.")
+          (shovel
 	   "You made a hole.")
 	  (t
 	   "You can't dig with bare hands."))))
 
 (defun handle-swing (loc verb rest)
-  (cond ((string= rest "rope")
+  (cond ((and (eq loc 'study)
+	      (string= rest "axe")
+	      (item-in-backpack-p (find-item 'axe)))
+	 (add-location 'study
+		       (find-location 'study-secret-room))
+	 "You broke the thin wall.")
+        ((string= rest "rope")
 	 (let ((rope (find-item 'rope)))
 	   (cond ((item-in-backpack-p rope)
 		  "You swung it")
@@ -684,6 +672,15 @@
 		  "Nothing to vacuum."))))
 	(t nil)))
 
+(defun handle-unlock (loc verb rest)
+  (cond ((and (eq *current-location* 'thick-door)
+	      (string= rest "door")
+	      (item-in-backpack-p (find-item 'key)))
+	 (add-location 'thick-door (find-location 'huge-open-door))
+	 "The key turns!")
+	(t
+	 "Nothing to unlock.")))
+
 (defun handle-drop (loc verb rest)
   (let ((item (find-item-by-name rest)))
     (cond ((not item)
@@ -702,7 +699,7 @@
 	   (setf *exit* t)
 	   (format nil "Double score for reaching here!~%Your score is ~a." (* 2 score)))
 	  (t
-	   (format nil "You have everything!~%Return to the gate for the final score.")))))
+	   (format nil "You have everything~%Return to the gate for the final score.")))))
 
 (defun handle-exit (loc verb rest)
   (setf *exit* t)
@@ -730,6 +727,7 @@
     (unlight ,#'handle-unlight)
     (spray ,#'handle-spray)
     (use ,#'handle-use)
+    (unlock ,#'handle-unlock)
     (drop ,#'handle-drop)
     (score ,#'handle-score)
     (exit ,#'handle-exit)))
@@ -748,8 +746,7 @@
     (leave drop)))
 
 (defun get-handler (verb commands)
-  (or (cadr (assoc verb commands))
-      #'empty-handler))
+  (cadr (assoc verb commands)))
 
 (defun whitespace-char-p (x)
   (or (char= #\space x)
@@ -848,6 +845,8 @@
 
 	;; EVAL
 	(cond ((not verb))
+	      ((not handler)
+	       (format t "WARNING: no handler for ~a ~a~%" verb rest))
 	      ((and (eq *current-location* 'rear-turret-room)
 		    (not (item-value (find-item 'bats)))
 		    (not (eq verb 'use))
