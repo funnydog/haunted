@@ -416,6 +416,12 @@
 (defun location-edges (loc)
   (cddr (assoc loc *nodes*)))
 
+(defun find-location (loc)
+  (cdr (assoc loc *nodes*)))
+
+(defun add-location (id loc)
+  (setf *nodes* (acons id loc *nodes*)))
+
 ;; item functions
 (defun item-name (item)
   (cadr (or (assoc item *items*)
