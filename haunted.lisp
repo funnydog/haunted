@@ -739,28 +739,6 @@
           (t
            (resolve-alias (cadr alias))))))
 
-(defun whitespace-char-p (x)
-  (or (char= #\space x)
-      (not (graphic-char-p x))))
-
-(defun string-split (string delimp)
-  "Split a string in words delimited by the predicate delimp"
-  (let ((len (length string)))
-    (labels ((maybe-add (a b parts)
-               (cond ((= a b) parts)
-                     (t
-                      (cons (subseq string a b)
-                            parts))))
-             (tokens (a b parts)
-               (cond ((= b len)
-                      (reverse (maybe-add a b parts)))
-                     ((funcall delimp (char string b))
-                      (tokens (1+ b) (1+ b)
-                              (maybe-add a b parts)))
-                     (t
-                      (tokens a (1+ b) parts)))))
-      (tokens 0 0 nil))))
-
 (defun input (prompt)
   (force-output)
   (fresh-line)
