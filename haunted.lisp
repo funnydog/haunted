@@ -740,6 +740,8 @@
            (format nil "You have everything, return to the gate for the final score.")))))
 
 ;; allowed commands
+;; flags:
+;;   :not-in-backpack - callable if an item is not in pocket
 (defparameter *allowed-commands*
   `((help ,#'handle-help)
     (inventory ,#'handle-inventory)
@@ -749,14 +751,14 @@
     (east ,#'handle-go)
     (up ,#'handle-go)
     (down ,#'handle-go)
-    (get ,#'handle-get)
+    (get ,#'handle-get :not-in-backpack)
     (open ,#'handle-open)
     (examine ,#'handle-examine)
     (read ,#'handle-read)
     (say ,#'handle-say)
     (dig ,#'handle-dig)
-    (swing ,#'handle-swing)
-    (climb ,#'handle-climb)
+    (swing ,#'handle-swing :not-in-backpack)
+    (climb ,#'handle-climb :not-in-backpack)
     (light ,#'handle-light)
     (unlight ,#'handle-unlight)
     (spray ,#'handle-spray)
@@ -891,6 +893,7 @@
                 (len (length string))
                 (ws (position #\Space string))
                 (verb (find-verb (subseq string 0 (or ws len))))
+                (flags (cddr (assoc verb *allowed-commands*)))
                 (target (subseq string (if ws (1+ ws) len)))
                 (handler (cadr (assoc verb *allowed-commands*)))
                 (item (cond ((eq handler #'handle-go) verb)
@@ -946,8 +949,12 @@
 
                   ;; execute the handler
                   (let ((default (if item "Pardon?" "I need two words")))
-                    (game-loop (funcall handler *current-location* item target default)))))))))
-
+                    (cond ((and (not (find :not-in-backpack flags))
+                                (assoc item *items*)
+                                (not (item-in-backpack item)))
+                           (game-loop (format nil "You do not have the ~a." target)))
+                          (t
+                           (game-loop (funcall handler *current-location* item target default)))))))))))
 
 (defun game-start ()
   (game-init)
