@@ -465,9 +465,6 @@
 (defun item-name (item)
   (cadr (assoc item *items*)))
 
-(defun item-flags (item)
-  (cdddr (assoc item *items*)))
-
 (defun item-location (item)
   (gethash item *item-locations*))
 
