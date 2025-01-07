@@ -556,7 +556,7 @@
 (defun handle-get (loc item str-item default)
   (cond ((or (not item)
              (item-hidden item))
-         default)
+         (format nil "What ~a?" str-item))
         ((item-in-backpack item)
          "You already have it.")
         ((not (eq (item-location item) loc))
