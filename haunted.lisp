@@ -924,15 +924,17 @@
                  ((not verb)
                   (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
-                       (not *bats-active*)
-                       (= (random 3) 0))
-                  (setf *bats-active* t)
-                  (game-loop "Bats attacking!"))
-                 ((and *bats-active*
-                       (not (eq verb 'use)))
+                       (not (find verb '(use say)))
+                       *bats-active*)
                   (game-loop "Bats attacking!"))
                  (t
-                  ;; set ghosts with a 50% change in cobwebby-room unless
+                  ;; set bats with a 33% chance in the rear-turret-room
+                  (when (and (eq *current-location* 'rear-turret-room)
+                             (not *bats-active*)
+                             (= (random 3) 0))
+                    (setf *bats-active* t))
+
+                  ;; set ghosts with a 50% chance in cobwebby-room unless
                   ;; they have been vacuumed already
                   (when (and (eq *current-location* 'cobwebby-room)
                              (not *ghosts-appear*)
