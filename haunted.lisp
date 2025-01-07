@@ -607,8 +607,7 @@
               (not *spell-discovered*))
          (setf *spell-discovered* t)
          "Say this word with care 'xzanfar'.")
-        ((and (eq item 'scroll)
-              (item-in-backpack item))
+        ((eq item 'scroll)
          "The script is in an alien tongue.")
         (t
          default)))
@@ -697,8 +696,7 @@
          "Pfft! Got them.")))
 
 (defun handle-use (loc item str-item default)
-  (cond ((and (eq item 'vacuum)
-              (item-in-backpack 'vacuum))
+  (cond ((eq item 'vacuum)
          (cond ((not (item-in-backpack 'batteries))
                 "No batteries for the vacuum.")
                ((and (eq loc 'cobwebby-room)
@@ -723,8 +721,6 @@
 (defun handle-drop (loc item str-item default)
   (cond ((not item)
          default)
-        ((not (item-in-backpack item))
-         "You don't carry that object.")
         (t
          (set-item-location item loc)
          "Done.")))
