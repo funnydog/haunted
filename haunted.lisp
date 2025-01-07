@@ -765,9 +765,9 @@
     (score ,#'handle-score)))
 
 (defun input (prompt)
-  (force-output)
   (fresh-line)
   (princ prompt)
+  (force-output)
   (read-line *standard-input* nil))
 
 (defun game-save (name)
