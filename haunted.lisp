@@ -916,7 +916,7 @@
                  ((and verb (not handler))
                   (format t "WARNING: missing handler for verb ~a~%" verb))
                  ((and (not verb) (not item))
-                  (game-loop (format t "You cannot ~a." string)))
+                  (game-loop (format nil "You cannot ~a." string)))
                  ((not verb)
                   (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
