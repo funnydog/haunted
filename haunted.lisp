@@ -843,6 +843,13 @@
         ;; (*quest-failed*
         ;;  (princ ":(") (terpri))
         (t
+         ;; banner
+         (terpri)
+         (terpri)
+         (format t "~40:@<~a~>~%" "Haunted House")
+         (princ "========================================")
+         (terpri)
+         (terpri)
          (format t "Your location: ~a.~%"
                  (location-name *current-location*))
          (format t "Exits: ~{~a~^, ~}.~%"
@@ -855,12 +862,14 @@
            (when items
              (format t "You see: ~{~a~^, ~}.~%" (mapcar #'item-name items))))
 
-      ;; update the candle status
+         ;; update the candle status
          (when *light-on*
            (when (= *light-time* 10)
              (format t "Your candle is waning!~%"))
            (when (= *light-time* 1)
              (format t "Your candle is out!~%")))
+
+         (terpri)
 
          (let* ((string (input "What will you do? "))
                 (len (length string))
@@ -929,7 +938,6 @@
                     (terpri)
                     (game-loop))))))))
 
-(game-init)
-(format t "Haunted House~%")
-(format t "-------------~%")
-(game-loop)
+(defun game-start ()
+  (game-init)
+  (game-loop))
