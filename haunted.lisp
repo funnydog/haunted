@@ -933,7 +933,7 @@
                   ;; set ghosts with a 50% chance in cobwebby-room unless
                   ;; they have been vacuumed already
                   (when (and (eq *current-location* 'cobwebby-room)
-                             (not *ghosts-appear*)
+                             (not *ghosts-vacuumed*)
                              (= (random 2) 0))
                     (setf *ghosts-appear* t))
 
