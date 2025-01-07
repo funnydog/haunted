@@ -486,19 +486,21 @@
                    (eq (item-location item) loc))
                  (mapcar #'car *items*)))
 
-(defun find-item (str)
-  "Search a string among the items"
-  (labels ((find-name (lst)
+;; misc functions
+(defun find-word (str)
+  "Search a string among the items and the recognized words"
+  (labels ((find-item (lst)
              (cond ((null lst) lst)
                    ((string= (cadar lst) str)
                     (caar lst))
-                   (t (find-name (cdr lst))))))
-    (find-name *items*)))
+                   (t
+                    (find-item (cdr lst))))))
+    (or (find-item *items*)
+        (cadr (assoc str *words* :test #'string=)))))
 
-;; misc functions
-(defun find-word (str)
-  "Search a string among the recognized words"
-  (cadr (assoc str *words* :test #'string=)))
+(defun is-item (sym)
+  "Check if a symbol is an item"
+  (assoc sym *items*))
 
 (defun find-verb (str)
   "Find a string among the recognized verbs"
@@ -890,35 +892,33 @@
                 (len (length string))
                 (ws (position #\Space string))
                 (verb (find-verb (subseq string 0 (or ws len))))
-                (flags (cddr (assoc verb *allowed-commands*)))
+                (row (assoc verb *allowed-commands*))
+                (handler (cadr row))
+                (flags (cddr row))
                 (target (subseq string (if ws (1+ ws) len)))
-                (handler (cadr (assoc verb *allowed-commands*)))
-                (item (cond ((eq handler #'handle-go) verb)
-                            (t (let ((plural (concatenate 'string target "s")))
-                                 (or (find-item target)
-                                     (find-item plural)
-                                     (find-word target)
-                                     (find-word plural)))))))
+                (word (if (eq handler #'handle-go)
+                          verb
+                          (or (find-word target)
+                              (find-word (concatenate 'string target "s"))))))
            (cond ((eq verb 'exit)
                   (princ "Bye...")
                   (terpri))
                  ((eq verb 'save)
                   (let ((filename (input "Please enter the filename: ")))
-                    (game-loop (cond ((game-save filename)
-                                      "Ok, carry on.")
-                                     (t
-                                      "Cannot save the game.")))))
+                    (game-loop (if (game-save filename)
+                                   "Ok, carry on."
+                                   "Cannot save the game."))))
                  ((eq verb 'load)
                   (let ((filename (input "Please enter the filename: ")))
-                    (game-loop (cond ((game-load filename)
-                                      "Ok, carry on.")
-                                     (t
-                                      "Cannot load the game.")))))
+                    (game-loop (if (game-load filename)
+                                   "Ok, carry on."
+                                   "Cannot load the game."))))
                  ((and verb (not handler))
                   (format t "WARNING: missing handler for verb ~a~%" verb))
-                 ((and (not verb) (not item))
+                 ((and (not verb)
+                       (not word))
                   (game-loop (format nil "You cannot ~a." string)))
-                 ((not verb)
+                 ((not handler)
                   (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
                        (not (find verb '(use say)))
@@ -945,13 +945,13 @@
                       (setf *light-on* nil)))
 
                   ;; execute the handler
-                  (let ((default (if item "Pardon?" "I need two words")))
+                  (let ((default (if word "Pardon?" "I need two words.")))
                     (cond ((and (not (find :not-in-backpack flags))
-                                (assoc item *items*)
-                                (not (item-in-backpack item)))
+                                (is-item word)
+                                (not (item-in-backpack word)))
                            (game-loop (format nil "You do not have the ~a." target)))
                           (t
-                           (game-loop (funcall handler *current-location* item target default)))))))))))
+                           (game-loop (funcall handler *current-location* word target default)))))))))))
 
 (defun game-start ()
   (game-init)
