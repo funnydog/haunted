@@ -557,7 +557,7 @@
               (eq item 'books))
          "They are demonic works.")
         ((and (find item '(spells magic-spells))
-              (item-in-backpack 'spells)
+              (item-in-backpack 'magic-spells)
               (not *spell-discovered*))
          (setf *spell-discovered* t)
          "Say this word with care 'xzanfar'.")
@@ -829,7 +829,7 @@
   (setf *spell-discovered* nil)
   (setf *quest-won* nil))
 
-(defun game-loop ()
+(defun game-loop (message)
   (cond (*quest-won*
          (princ "HOORRAAAY!") (terpri)
          (terpri)
@@ -844,12 +844,14 @@
          (princ "========================================")
          (terpri)
          (terpri)
-         (format t "Your location: ~a.~%"
-                 (location-name *current-location*))
-         (format t "Exits: ~{~a~^, ~}.~%"
-                 (mapcar (lambda (dir)
-                           (string-downcase (prin1-to-string dir)))
-                         (mapcar #'car (location-edges *current-location*))))
+         (format t "~a~%Your location: ~a.~%Exits: ~{~a~^, ~}.~%"
+                 message
+                 (location-name *current-location*)
+                 (mapcar (lambda (couple)
+                           (string-downcase
+                            (prin1-to-string
+                             (car couple))))
+                         (location-edges *current-location*)))
 
          ;; visible items
          (let ((items (remove-if #'item-hidden (items-at *current-location*))))
@@ -882,36 +884,27 @@
                   (terpri))
                  ((eq fun 'save)
                   (let ((filename (input "Please enter the filename: ")))
-                    (cond ((game-save filename)
-                           (princ "Game saved.")
-                           (terpri))
-                          (t
-                           (princ "Cannot save the game.")
-                           (terpri))))
-                  (game-loop))
+                    (game-loop (cond ((game-save filename)
+                                      "Ok, carry on.")
+                                     (t
+                                      "Cannot save the game.")))))
                  ((eq fun 'load)
                   (let ((filename (input "Please enter the filename: ")))
-                    (cond ((game-load filename)
-                           (princ "Game loaded.")
-                           (terpri))
-                          (t
-                           (princ "Cannot load the game.")
-                           (terpri))))
-                  (game-loop))
+                    (game-loop (cond ((game-load filename)
+                                      "Ok, carry on.")
+                                     (t
+                                      "Cannot load the game.")))))
                  ((and (not handler)
                        (not item))
-                  (format t "You cannot ~a.~%" string)
-                  (game-loop))
+                  (game-loop (format t "You cannot ~a." string)))
                  ((not handler)
-                  (format t "Try something else.~%")
-                  (game-loop))
+                  (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
                        (not *bats-active*)
                        (not (eq fun #'handle-use))
                        (= (random 3) 0))
                   (setf *bats-active* t)
-                  (format t "Bats attacking!~%")
-                  (game-loop))
+                  (game-loop "Bats attacking!"))
                  (t
                   ;; set ghosts with a 50% change in cobwebby-room unless
                   ;; they have been vacuumed already
@@ -928,10 +921,9 @@
 
                   ;; execute the handler
                   (let ((message (if item "Pardon?" "I need two words")))
-                    (princ (funcall fun *current-location* item message))
-                    (terpri)
-                    (game-loop))))))))
+                    (game-loop (funcall fun *current-location* item message)))))))))
+
 
 (defun game-start ()
   (game-init)
-  (game-loop))
+  (game-loop "Good luck on your quest!"))
