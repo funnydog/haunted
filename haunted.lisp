@@ -1,9 +1,16 @@
 ;; Haunted House - Common Lisp version
 ;; adapted from "Write your own adventure programs" by Usborne.
 
-(defvar *item-locations*   nil "Where is the item")
-(defvar *item-hidden*      nil "Set if hidden")
-(defvar *current-location* nil "Player's location")
+;; program variables
+(defvar *allowed-commands* nil "Allowed commands")
+(defvar *nodes*            nil "List of the locations")
+(defvar *items*            nil "List of the items")
+(defvar *static-items*     nil "List of items for lookup")
+
+;; player's variables
+(defvar *item-locations*   nil "Location of the item")
+(defvar *item-hidden*      nil "Hidden status for the item")
+(defvar *current-location* nil "Location of the player")
 (defvar *light-on*         nil "Light is on")
 (defvar *light-time*       nil "Light time left")
 (defvar *top-of-tree*      nil "At the top of the tree")
