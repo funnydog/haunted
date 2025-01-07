@@ -3,9 +3,10 @@
 
 ;; program variables
 (defvar *allowed-commands* nil "Allowed commands")
-(defvar *nodes*            nil "List of the locations")
-(defvar *items*            nil "List of the items")
-(defvar *static-items*     nil "List of items for lookup")
+(defvar *nodes*            nil "Visitable locations")
+(defvar *items*            nil "Items in the game")
+(defvar *words*            nil "Recognized words")
+(defvar *verbs*            nil "Recognized verbs")
 
 ;; player's variables
 (defvar *item-locations*   nil "Location of the item")
@@ -373,7 +374,7 @@
 (defparameter *items*
   '((painting "painting" spooky-room)
     (ring "ring" coffin-cellar :hidden)
-    (spells "magic spells" secret-room)
+    (magic-spells "magic spells" secret-room)
     (goblet "goblet" front-tower)
     (scroll "scroll" rear-turret-room)
     (coins "coins" dark-alcove)
@@ -390,25 +391,61 @@
     (candle "candle" study :hidden)
     (key "key" cupboard :hidden)))
 
-;; static items for lookups
-(defparameter *static-items*
-  '((north "north")
-    (south "south")
-    (west "west")
-    (east "east")
-    (up "up")
-    (down "down")
-    (door "door")
-    (bats "bats")
-    (ghosts "ghosts")
-    (drawer "drawer")
-    (desk "desk")
-    (coat "coat")
-    (rubbish "rubbish")
-    (coffin "coffin")
-    (books "books")
-    (xzanfar "xzanfar")
-    (wall "wall")))
+;; non-interactive items
+(defparameter *words*
+  '(("bats" bats)
+    ("books" books)
+    ("coat" coat)
+    ("coffin" coffin)
+    ("desk" desk)
+    ("door" door)
+    ("drawer" drawer)
+    ("exit" exit)
+    ("ghosts" ghosts)
+    ("load" load)
+    ("rubbish" rubbish)
+    ("south" south)
+    ("spells" spells)
+    ("wall" wall)
+    ("xzanfar" xzanfar)))
+
+;; verbs and aliases
+(defparameter *verbs*
+  '(("climb" climb)
+    ("d" down)
+    ("dig" dig)
+    ("down" down)
+    ("drop" drop)
+    ("e" east)
+    ("east" east)
+    ("ex" examine)
+    ("exa" examine)
+    ("examine" examine)
+    ("exit" exit)
+    ("get" get)
+    ("help" help)
+    ("i" inventory)
+    ("inv" inventory)
+    ("inventory" inventory)
+    ("light" light)
+    ("n" north)
+    ("north" north)
+    ("open" open)
+    ("read" read)
+    ("s" south)
+    ("save" save)
+    ("say" say)
+    ("score" score)
+    ("spray" spray)
+    ("swing" swing)
+    ("u" up)
+    ("unlight" unlight)
+    ("unlock" unlock)
+    ("up" up)
+    ("use" use)
+    ("w" west)
+    ("west" west)
+  ))
 
 ;; location functions
 (defun find-location (loc)
@@ -426,8 +463,7 @@
 
 ;; item functions
 (defun item-name (item)
-  (cadr (or (assoc item *items*)
-            (assoc item *static-items*))))
+  (cadr (assoc item *items*)))
 
 (defun item-flags (item)
   (cdddr (assoc item *items*)))
@@ -453,24 +489,37 @@
                  (mapcar #'car *items*)))
 
 (defun find-item (str)
+  "Search a string among the items"
   (labels ((find-name (lst)
              (cond ((null lst) lst)
                    ((string= (cadar lst) str)
                     (caar lst))
                    (t (find-name (cdr lst))))))
-    (or (find-name *items*)
-        (find-name *static-items*))))
+    (find-name *items*)))
+
+;; misc functions
+(defun find-word (str)
+  "Search a string among the recognized words"
+  (cadr (assoc str *words* :test #'string=)))
+
+(defun find-verb (str)
+  "Find a string among the recognized verbs"
+  (cadr (assoc str *verbs* :test #'string=)))
+
+(defun random-choice (lst)
+  (nth (random (length lst)) lst))
 
 ;; verb handlers
-(defun handle-help (loc item default)
+(defun handle-help (loc item str-item default)
+  ;; TODO: make a meaningful simple help instead of iterating words
   (format nil "Words I know:~%~{~a~^~%~}"
           (mapcar #'car *allowed-commands*)))
 
-(defun handle-inventory (loc item default)
+(defun handle-inventory (loc item str-item default)
   (let ((items (mapcar #'item-name (items-at 'backpack))))
     (format nil "You are carrying ~:[nothing~;~{~a~^, ~}~]." items items)))
 
-(defun handle-go (loc item default)
+(defun handle-go (loc item str-item default)
   (let ((next (cadr (assoc item (location-edges loc)))))
     (cond ((and (eq loc 'blasted-tree)
                 *top-of-tree*)
@@ -500,11 +549,11 @@
            "Too dark to move.")
           (next
            (setf *current-location* next)
-           "OK")
+           "OK!")
           (t
            "You can't go that way."))))
 
-(defun handle-get (loc item default)
+(defun handle-get (loc item str-item default)
   (cond ((or (not item)
              (item-hidden item))
          default)
@@ -516,7 +565,7 @@
          (set-item-location item 'backpack)
          (format nil "You have the ~a." (item-name item)))))
 
-(defun handle-open (loc item default)
+(defun handle-open (loc item str-item default)
   (cond ((and (eq loc 'study)
               (find item '(drawer desk)))
          (set-item-hidden 'candle nil)
@@ -531,7 +580,7 @@
         (t
          default)))
 
-(defun handle-examine (loc item default)
+(defun handle-examine (loc item str-item default)
   (cond ((and (eq loc 'cupboard)
               (eq item 'coat))
          (set-item-hidden 'key nil)
@@ -546,13 +595,13 @@
               (eq item 'wall))
          "There is something beyond...")
         ((find item '(books scroll))
-         (handle-read loc item default))
+         (handle-read loc item str-item default))
         ((eq item 'coffin)
-         (handle-open loc item default))
+         (handle-open loc item str-item default))
         (t
          default)))
 
-(defun handle-read (loc item default)
+(defun handle-read (loc item str-item default)
   (cond ((and (eq loc 'evil-library)
               (eq item 'books))
          "They are demonic works.")
@@ -567,19 +616,16 @@
         (t
          default)))
 
-(defun random-choice (lst)
-  (nth (random (length lst)) lst))
-
-(defun handle-say (loc item default)
+(defun handle-say (loc item str-item default)
   (cond ((or (not (eq item 'xzanfar))
              (not *spell-discovered*))
-         (format nil "Ok, '~a'." (item-name item))) ;TODO: replace with the actual text
+         (format nil "Ok, '~a'." str-item))
         (t
          (when (not (eq loc 'cold-chamber))
            (setf *current-location* (random-choice (mapcar #'car *nodes*))))
          "*** Magic Occurs ***")))
 
-(defun handle-dig (loc item default)
+(defun handle-dig (loc item str-item default)
   (cond ((and (eq loc 'barred-cellar)
               (item-in-backpack 'shovel))
          (replace-location 'barred-cellar 'hole-in-wall)
@@ -589,7 +635,7 @@
         (t
          default)))
 
-(defun handle-swing (loc item default)
+(defun handle-swing (loc item str-item default)
   (cond ((and (eq loc 'study)
               (eq item 'axe)
               (item-in-backpack item))
@@ -608,7 +654,7 @@
         (t
          default)))
 
-(defun handle-climb (loc item default)
+(defun handle-climb (loc item str-item default)
   (cond ((not (eq item 'rope))
          default)
         ((item-in-backpack 'rope)
@@ -623,7 +669,7 @@
         (t
          default)))
 
-(defun handle-light (loc item default)
+(defun handle-light (loc item str-item default)
   (cond ((not (eq item 'candle))
          default)
         ((not (item-in-backpack 'candle))
@@ -636,14 +682,14 @@
          (setf *light-on* t)
          "It casts a flickering light.")))
 
-(defun handle-unlight (loc item default)
+(defun handle-unlight (loc item str-item default)
   (cond (*light-on*
          (setf *light-on* nil)
          "Extinguished.")
         (t
          default)))
 
-(defun handle-spray (loc item default)
+(defun handle-spray (loc item str-item default)
   (cond ((not (item-in-backpack 'aerosol))
          "You can't spray anthing.")
         ((and (not (eq item 'bats))
@@ -653,7 +699,7 @@
          (setf *bats-active* nil)
          "Pfft! Got them.")))
 
-(defun handle-use (loc item default)
+(defun handle-use (loc item str-item default)
   (cond ((and (eq item 'vacuum)
               (item-in-backpack 'vacuum))
          (cond ((not (item-in-backpack 'batteries))
@@ -668,7 +714,7 @@
         (t
          default)))
 
-(defun handle-unlock (loc item default)
+(defun handle-unlock (loc item str-item default)
   (cond ((and (eq loc 'thick-door)
               (eq item 'door)
               (item-in-backpack 'key))
@@ -677,7 +723,7 @@
         (t
          default)))
 
-(defun handle-drop (loc item default)
+(defun handle-drop (loc item str-item default)
   (cond ((not item)
          default)
         ((not (item-in-backpack item))
@@ -686,7 +732,7 @@
          (set-item-location item loc)
          "Done.")))
 
-(defun handle-score (loc item default)
+(defun handle-score (loc item str-item default)
   (let ((score (length (items-at 'backpack))))
     (cond ((< score 17)
            (format nil "Your score is ~a." score))
@@ -698,52 +744,29 @@
 
 ;; allowed commands
 (defparameter *allowed-commands*
-  `(("help" ,#'handle-help)
-    ("inventory" ,#'handle-inventory)
-    ("north" ,#'handle-go)
-    ("south" ,#'handle-go)
-    ("west" ,#'handle-go)
-    ("east" ,#'handle-go)
-    ("up" ,#'handle-go)
-    ("down" ,#'handle-go)
-    ("get" ,#'handle-get)
-    ("open" ,#'handle-open)
-    ("examine" ,#'handle-examine)
-    ("read" ,#'handle-read)
-    ("say" ,#'handle-say)
-    ("dig" ,#'handle-dig)
-    ("swing" ,#'handle-swing)
-    ("climb" ,#'handle-climb)
-    ("light" ,#'handle-light)
-    ("unlight" ,#'handle-unlight)
-    ("spray" ,#'handle-spray)
-    ("use" ,#'handle-use)
-    ("unlock" ,#'handle-unlock)
-    ("drop" ,#'handle-drop)
-    ("score" ,#'handle-score)
-    ;; special verbs
-    ("save" save)
-    ("load" load)
-    ("exit" exit)))
-
-(defparameter *verb-aliases*
-  '((n north)
-    (s south)
-    (w west)
-    (e east)
-    (u up)
-    (d down)
-    (i inventory)
-    (carrying inventory)
-    (take get)
-    (quit exit)
-    (leave drop)))
-
-(defun resolve-alias (verb)
-  (let ((alias (assoc verb *verb-aliases*)))
-    (cond ((not alias) verb)
-          (t
-           (resolve-alias (cadr alias))))))
+  `((help ,#'handle-help)
+    (inventory ,#'handle-inventory)
+    (north ,#'handle-go)
+    (south ,#'handle-go)
+    (west ,#'handle-go)
+    (east ,#'handle-go)
+    (up ,#'handle-go)
+    (down ,#'handle-go)
+    (get ,#'handle-get)
+    (open ,#'handle-open)
+    (examine ,#'handle-examine)
+    (read ,#'handle-read)
+    (say ,#'handle-say)
+    (dig ,#'handle-dig)
+    (swing ,#'handle-swing)
+    (climb ,#'handle-climb)
+    (light ,#'handle-light)
+    (unlight ,#'handle-unlight)
+    (spray ,#'handle-spray)
+    (use ,#'handle-use)
+    (unlock ,#'handle-unlock)
+    (drop ,#'handle-drop)
+    (score ,#'handle-score)))
 
 (defun input (prompt)
   (force-output)
@@ -870,40 +893,43 @@
          (let* ((string (input "What will you do? "))
                 (len (length string))
                 (ws (position #\Space string))
-                (verb (subseq string 0 (or ws len)))
+                (verb (find-verb (subseq string 0 (or ws len))))
                 (target (subseq string (if ws (1+ ws) len)))
-                (handler (assoc verb *allowed-commands* :test #'string=))
-                (fun (cadr handler))
-                (item (cond ((eq fun #'handle-go)
-                             (find-item verb))
-                            (t
-                             (or (find-item target)
-                                 (find-item (concatenate 'string target "s")))))))
-           (cond ((eq fun 'exit)
+                (handler (cadr (assoc verb *allowed-commands*)))
+                (item (cond ((eq handler #'handle-go) verb)
+                            (t (let ((plural (concatenate 'string target "s")))
+                                 (or (find-item target)
+                                     (find-item plural)
+                                     (find-word target)
+                                     (find-word plural)))))))
+           (cond ((eq verb 'exit)
                   (princ "Bye...")
                   (terpri))
-                 ((eq fun 'save)
+                 ((eq verb 'save)
                   (let ((filename (input "Please enter the filename: ")))
                     (game-loop (cond ((game-save filename)
                                       "Ok, carry on.")
                                      (t
                                       "Cannot save the game.")))))
-                 ((eq fun 'load)
+                 ((eq verb 'load)
                   (let ((filename (input "Please enter the filename: ")))
                     (game-loop (cond ((game-load filename)
                                       "Ok, carry on.")
                                      (t
                                       "Cannot load the game.")))))
-                 ((and (not handler)
-                       (not item))
+                 ((and verb (not handler))
+                  (format t "WARNING: missing handler for verb ~a~%" verb))
+                 ((and (not verb) (not item))
                   (game-loop (format t "You cannot ~a." string)))
-                 ((not handler)
+                 ((not verb)
                   (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
                        (not *bats-active*)
-                       (not (eq fun #'handle-use))
                        (= (random 3) 0))
                   (setf *bats-active* t)
+                  (game-loop "Bats attacking!"))
+                 ((and *bats-active*
+                       (not (eq verb 'use)))
                   (game-loop "Bats attacking!"))
                  (t
                   ;; set ghosts with a 50% change in cobwebby-room unless
@@ -920,8 +946,8 @@
                       (setf *light-on* nil)))
 
                   ;; execute the handler
-                  (let ((message (if item "Pardon?" "I need two words")))
-                    (game-loop (funcall fun *current-location* item message)))))))))
+                  (let ((default (if item "Pardon?" "I need two words")))
+                    (game-loop (funcall handler *current-location* item target default)))))))))
 
 
 (defun game-start ()
