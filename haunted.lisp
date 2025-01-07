@@ -592,7 +592,7 @@
         ((and (eq loc 'study)
               (eq item 'wall))
          "There is something beyond...")
-        ((find item '(books scroll))
+        ((find item '(books scroll spells magic-spells))
          (handle-read loc item str-item default))
         ((eq item 'coffin)
          (handle-open loc item str-item default))
