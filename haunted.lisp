@@ -10,6 +10,7 @@
 ;; player's variables
 (defvar *item-locations*   nil "Location of the item")
 (defvar *item-hidden*      nil "Hidden status for the item")
+(defvar *player-nodes*     nil "Additional locations")
 (defvar *current-location* nil "Location of the player")
 (defvar *light-on*         nil "Light is on")
 (defvar *light-time*       nil "Light time left")
@@ -410,17 +411,18 @@
     (wall "wall")))
 
 ;; location functions
+(defun find-location (loc)
+  (or (assoc loc *player-nodes*)
+      (assoc loc *nodes*)))
+
 (defun location-name (loc)
-  (cadr (assoc loc *nodes*)))
+  (cadr (find-location loc)))
 
 (defun location-edges (loc)
-  (cddr (assoc loc *nodes*)))
+  (cddr (find-location loc)))
 
-(defun find-location (loc)
-  (cdr (assoc loc *nodes*)))
-
-(defun add-location (id loc)
-  (setf *nodes* (acons id loc *nodes*)))
+(defun replace-location (old new)
+  (setf *player-nodes* (acons old (cdr (find-location new)) *player-nodes*)))
 
 ;; item functions
 (defun item-name (item)
@@ -580,8 +582,7 @@
 (defun handle-dig (loc item default)
   (cond ((and (eq loc 'barred-cellar)
               (item-in-backpack 'shovel))
-         (add-location 'barred-cellar
-                       (find-location 'hole-in-wall))
+         (replace-location 'barred-cellar 'hole-in-wall)
          "Dug the bars out.")
         ((item-in-backpack 'shovel)
          "You made a hole.")
@@ -592,8 +593,7 @@
   (cond ((and (eq loc 'study)
               (eq item 'axe)
               (item-in-backpack item))
-         (add-location 'study
-                       (find-location 'study-secret-room))
+         (replace-location 'study 'study-secret-room)
          "You broke the thin wall.")
         ((and (eq item 'axe)
               (item-in-backpack 'item))
@@ -672,7 +672,7 @@
   (cond ((and (eq loc 'thick-door)
               (eq item 'door)
               (item-in-backpack 'key))
-         (add-location 'thick-door (find-location 'huge-open-door))
+         (replace-location 'thick-door 'huge-open-door)
          "The key turns!")
         (t
          default)))
@@ -763,6 +763,7 @@
         (with-open-file (out name :direction :output :if-exists :supersede)
           (let ((alist `((item-locations ,@(hash-to-alist *item-locations*))
                          (item-hidden ,@(hash-to-alist *item-hidden*))
+                         (player-nodes ,@*player-nodes*)
                          (current-location ,*current-location*)
                          (light-on ,*light-on*)
                          (light-time ,*light-time*)
@@ -791,6 +792,7 @@
           (let ((alist (read in)))
             (setf *item-locations* (alist-to-hash (cdr (assoc 'item-locations alist))))
             (setf *item-hidden* (alist-to-hash (cdr (assoc 'item-hidden alist))))
+            (setf *player-nodes* (cdr (assoc 'player-nodes alist)))
             (setf *current-location* (cadr (assoc 'current-location alist)))
             (setf *light-on* (cadr (assoc 'light-on alist)))
             (setf *light-time* (cadr (assoc 'light-time alist)))
@@ -816,6 +818,7 @@
             (when (find :hidden flags)
               (setf (gethash id *item-hidden*) t))))
         *items*)
+  (setf *player-nodes* nil)
   (setf *current-location* 'iron-gate-path)
   (setf *light-on* nil)
   (setf *light-time* 60)
