@@ -4,7 +4,7 @@
 ;; program variables
 (defvar *allowed-commands* nil "Allowed commands")
 (defvar *nodes*            nil "Visitable locations")
-(defvar *items*            nil "Items in the game")
+(defvar *items*            nil "Interactive items")
 (defvar *words*            nil "Recognized words")
 (defvar *verbs*            nil "Recognized verbs")
 
@@ -370,7 +370,8 @@
      (west vaulted-hallway)
      (east trophy-room))))
 
-;; dynamic items
+;; interactive items
+;; the player can get them and move them
 (defparameter *items*
   '((painting "painting" spooky-room)
     (ring "ring" coffin-cellar :hidden)
