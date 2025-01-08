@@ -457,13 +457,9 @@
     (and loc (cddr loc))))
 
 (define (replace-location! old-id new-id)
-  (let ((old (find-location old-id))
-        (new (find-location new-id)))
-    (cond ((and old new)
-           (set! *player-nodes* (cons (cons old-id (cdr new))
-                                      *player-nodes*))
-           #t)
-          (else #f))))
+  (let ((new (find-location new-id)))
+    (set! *player-nodes* (cons (cons old-id (cdr new))
+                               *player-nodes*))))
 
 ;; item functions
 (define (item-name id)
