@@ -545,7 +545,7 @@
           ((and (eq? loc 'marsh)
                 (not (item-in-backpack? 'boat)))
            "You are stuck.")
-          ((and (member loc '(cliff-path-3 marsh-by-wall marsh soggy-path))
+          ((and (not (member loc '(cliff-path-3 marsh-by-wall marsh soggy-path)))
                 (item-in-backpack? 'boat))
            "You can't carry the boat.")
           ((and (member loc '(valuted-hallway thick-door trophy-room))
@@ -733,6 +733,7 @@
         ((and (eq? loc 'thick-door)
               (eq? word 'door)
               (item-in-backpack? 'key))
+         (replace-location! 'thick-door 'huge-open-door)
          "The key turns!")
         (else
          default)))
