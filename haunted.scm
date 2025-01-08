@@ -1,798 +1,758 @@
 ;; The Haunted House - scheme edition
 ;; Adapted from "Write your own adventure programs" by Usborne.
 
-;; room record definition
-(define-record-type room
-  (fields description handler exits))
+;; player's variables
+(define *player-nodes*   '())
+(define *item-locations* (make-eq-hashtable))
+(define *item-hidden*    (make-eq-hashtable))
+(define *current-location*)
 
-;; empty handler
-(define (empty-handler room verb words)
-  #f)
-
-;; syntax rule to make a new room without quoting
-(define-syntax new-room
-  (syntax-rules (:fn)
-    ((_ id description :fn fn rooms ...)
-     `(id ,(make-room description fn '(rooms ...))))
-    ((_ id description rooms ...)
-     `(id ,(make-room description empty-handler '(rooms ...))))))
+;; game variables
+(define *front-door-open*  #t)          ; the front door is open
+(define *candle-lit*       #f)          ; the candle is lit
+(define *candle-time*      60)          ; candle time left
+(define *top-of-tree*      #f)          ; true if at the top of three
+(define *ghosts-appear*    #f)          ; true if ghosts appeared
+(define *vacuum-on*        #f)          ; true if ghosts are vacuumed
+(define *bats-present*     #f)          ; true if bats are flying
+(define *spell-discovered* #f)          ; true if spell discovered
+(define *quest-won*        #f)          ; true if quest is won
 
 ;; rooms association list
-(define *rooms*
-  (list (new-room dark-corner
-                  "dark corner"
-                  (south corner-of-house)
-                  (east overgrown-garden))
-
-        (new-room overgrown-garden
-                  "overgrown garden"
-                  (west dark-corner)
-                  (east large-woodpile))
-
-        (new-room large-woodpile
-                  "large woodpile"
-                  (west overgrown-garden)
-                  (east yard-by-rubbish))
-
-        (new-room yard-by-rubbish
-                  "yard by rubbish"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'examine)
-                                    (equal? word "rubbish"))
-                               "That's disgusting.")
-                              (else #f)))
-                  (south scullery-door)
-                  (west large-woodpile)
-                  (east weedpatch))
-
-        (new-room weedpatch
-                  "weedpatch"
-                  (west yard-by-rubbish)
-                  (east forest))
-
-        (new-room forest
-                  "forest"
-                  (west weedpatch)
-                  (east thick-forest))
-
-        (new-room thick-forest
-                  "thick forest"
-                  (south clearing-by-house)
-                  (west forest)
-                  (east blasted-tree))
-
-        (new-room blasted-tree
-                  "blasted tree"
-                  (south path)
-                  (west thick-forest))
-
-        (new-room corner-of-house
-                  "corner of house"
-                  (north dark-corner)
-                  (south side-of-house))
-
-        (new-room entrance-to-kitchen
-                  "entrance to kitchen"
-                  (south back-of-hallway)
-                  (east kitchen))
-
-        (new-room kitchen
-                  "kitchen and grimy cooker"
-                  (west entrance-to-kitchen)
-                  (east scullery-door))
-
-        (new-room scullery-door
-                  "scullery door"
-                  (north yard-by-rubbish)
-                  (west kitchen))
-
-        (new-room room-with-dust
-                  "room with inches of dust"
-                  (east rear-turret-room)
-                  (down bottom-staircase))
-
-        (new-room rear-turret-room
-                  "rear turret room"
-                  (west room-with-dust))
-
-        (new-room clearing-by-house
-                  "clearing by house"
-                  (north thick-forest)
-                  (east path))
-
-        (new-room path
-                  "path"
-                  (north blasted-tree)
-                  (south clifftop)
-                  (west clearing-by-house))
-
-        (new-room side-of-house
-                  "side of the house"
-                  (north corner-of-house)
-                  (south crumbling-wall))
-
-        (new-room back-of-hallway
-                  "back of the hallway"
-                  (north entrance-to-kitchen)
-                  (south gloomy-passage))
-
-        (new-room dark-alcove
-                  "dark alcove"
-                  (south pool-of-light)
-                  (east small-dark-room))
-
-        (new-room small-dark-room
-                  "small dark room"
-                  (west dark-alcove)
-                  (east bottom-staircase))
-
-        (new-room bottom-staircase
-                  "bottom of a spiral staircase"
-                  (west small-dark-room)
-                  (up room-with-dust))
-
-        (new-room wide-passage
-                  "wide passage"
-                  (south trophy-room)
-                  (east slippery-steps))
-
-        (new-room slippery-steps
-                  "slippery steps"
-                  (south barred-cellar)
-                  (west wide-passage)
-                  (up wide-passage)
-                  (down barred-cellar))
-
-        (new-room clifftop
-                  "clifftop"
-                  (north path)
-                  (south cliff-path-1))
-
-        (new-room crumbling-wall
-                  "near a crumbling wall"
-                  (north side-of-house))
-
-        (new-room gloomy-passage
-                  "gloomy passage"
-                  (north back-of-hallway)
-                  (south front-hall))
-
-        (new-room pool-of-light
-                  "pool of light"
-                  (north dark-alcove)
-                  (south sitting-room)
-                  (east vaulted-hallway))
-
-        (new-room vaulted-hallway
-                  "impressive vaulted hallway"
-                  (west pool-of-light)
-                  (east thick-door))
-
-        (new-room thick-door
-                  "hall by thick wooden door"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'unlock)
-                                    (equal? word "door")
-                                    (item-in-backpack? (find-item 'key)))
-                               (add-room! 'thick-door (find-room 'huge-open-door))
-                               "The key turns!")
-                              ((and (eq? verb 'open)
-                                    (equal? word "door"))
-                               "It's locked.")
-                              (else #f)))
-                  (west vaulted-hallway)
-                  (east trophy-room))
-
-        (new-room trophy-room
-                  "trophy room"
-                  (north wide-passage)
-                  (south dining-room)
-                  (west thick-door))
-
-        (new-room barred-cellar
-                  "cellar with barred window"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'dig)
-                                    (item-in-backpack? (find-item 'shovel)))
-                               (add-room! 'barred-cellar (find-room 'hole-in-wall))
-                               "Dug the bars out.")
-                              (else #f)))
-                  (north slippery-steps)
-                  (south coffin-cellar))
-
-        (new-room cliff-path-1
-                  "cliff path"
-                  (north clifftop)
-                  (south cliff-path-2))
-
-        (new-room cupboard
-                  "cupboard with hanging coat"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'examine)
-                                    (equal? word "coat"))
-                               (item-value-set! (find-item 'key) #f)
-                               "There is something here!")
-                              (else #f)))
-                  (south closet))
-
-        (new-room front-hall
-                  "front hall"
-                  (north gloomy-passage)
-                  (south front-lobby)
-                  (east sitting-room))
-
-        (new-room sitting-room
-                  "sitting room"
-                  (north pool-of-light)
-                  (south evil-library)
-                  (west front-hall))
-
-        (new-room secret-room
-                  "secret room"
-                  (south study))
-
-        (new-room marble-stairs
-                  "steep marble stairs"
-                  (north thick-door)
-                  (south cobwebby-room)
-                  (up cobwebby-room)
-                  (down thick-door))
-
-        (new-room dining-room
-                  "dining room"
-                  (north trophy-room))
-
-        (new-room coffin-cellar
-                  "deep cellar with coffin"
-                  :fn (lambda (room verb word)
-                        (cond ((and (or (eq? verb 'open)
-                                        (eq? verb 'examine))
-                                    (equal? word "coffin"))
-                               (item-value-set! (find-item 'ring) #f)
-                               "That's creepy!")
-                              (else #f)))
-                  (north barred-cellar))
-
-        (new-room cliff-path-2
-                  "cliff path"
-                  (north cliff-path-1)
-                  (south cliff-path-3))
-
-        (new-room closet
-                  "closet"
-                  (north cupboard)
-                  (east front-lobby))
-
-        (new-room front-lobby
-                  "front lobby"
-                  (north front-hall)
-                  (south front-porch)
-                  (west closet))
-
-        (new-room evil-library
-                  "library of evil books"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'examine)
-                                    (equal? word "books"))
-                               "They are demonic works.")
-                              (else #f)))
-                  (north sitting-room)
-                  (east study))
-
-        (new-room study
-                  "study with desk and hole in the wall"
-                  :fn (lambda (room verb word)
-                        (cond ((and (eq? verb 'swing)
-                                    (equal? word "axe")
-                                    (item-in-backpack? (find-item 'axe)))
-                               (add-room! 'study (find-room 'study-secret-room))
-                               "You broke the thin wall.")
-                              ((and (eq? verb 'examine)
-                                    (equal? word "wall"))
-                               "There is something beyond...")
-                              (else #f)))
-                  (west evil-library))
-
-        (new-room cobwebby-room
-                  "weird cobwebby room"
-                  (north marble-stairs)
-                  (south upper-gallery)
-                  (east cold-chamber))
-
-        (new-room cold-chamber
-                  "very cold chamber"
-                  (west cobwebby-room)
-                  (east spooky-room))
-
-        (new-room spooky-room
-                  "spooky room"
-                  (west cold-chamber))
-
-        (new-room cliff-path-3
-                  "cliff path by marsh"
-                  (north cliff-path-2)
-                  (south soggy-path))
-
-        (new-room verandah
-                  "rubble-strewn verandah"
-                  (south twisted-railings)
-                  (east front-porch))
-
-        (new-room front-porch
-                  "front porch"
-                  (north front-lobby)
-                  (south iron-gate-path)
-                  (west verandah))
-
-        (new-room front-tower
-                  "front tower"
-                  (east sloping-corridor))
-
-        (new-room sloping-corridor
-                  "sloping corridor"
-                  (west front-tower)
-                  (east upper-gallery))
-
-        (new-room upper-gallery
-                  "upper gallery"
-                  (north cobwebby-room)
-                  (west sloping-corridor))
-
-        (new-room marsh-by-wall
-                  "marsh by wall"
-                  (south fallen-brickwork))
-
-        (new-room marsh
-                  "marsh"
-                  (south stone-arch)
-                  (west marsh-by-wall))
-
-        (new-room soggy-path
-                  "soggy path"
-                  (north cliff-path-3)
-                  (west marsh))
-
-        (new-room twisted-railings
-                  "by twisted railings"
-                  (north verandah)
-                  (east iron-gate-path))
-
-        (new-room iron-gate-path
-                  "path through iron gate"
-                  (north front-porch)
-                  (west twisted-railings)
-                  (east railings))
-
-        (new-room railings
-                  "by railings"
-                  (west iron-gate-path)
-                  (east beneath-front-tower))
-
-        (new-room beneath-front-tower
-                  "beneath the front tower"
-                  (west railings)
-                  (east debris))
-
-        (new-room debris
-                  "debris from crumbling facade"
-                  (west beneath-front-tower)
-                  (east fallen-brickwork))
-
-        (new-room fallen-brickwork
-                  "large fallen brickwork"
-                  (north marsh-by-wall)
-                  (west debris)
-                  (east stone-arch))
-
-        (new-room stone-arch
-                  "rotten stone arch"
-                  (north marsh)
-                  (west fallen-brickwork)
-                  (east crumbling-clifftop))
-
-        (new-room crumbling-clifftop
-                  "crumbling clifftop"
-                  (west stone-arch))
-
-        ;; NOTE: connected to barred-cellar after digging the bars
-        (new-room hole-in-wall
-                  "hole in the wall"
-                  (north slippery-steps)
-                  (south coffin-cellar)
-                  (east cliff-path-1))
-
-        ;; NOTE: connected to study after swinging the axe
-        (new-room study-secret-room
-                  "study with secret room"
-                  (north secret-room)
-                  (west evil-library))
-
-        ;; NOTE: connected to thick-door after unlocking the door
-        (new-room huge-open-door
-                  "Huge open door"
-                  (south marble-stairs)
-                  (west vaulted-hallway)
-                  (east trophy-room))))
-
-;; edge functions for exits
-(define (edge-direction edge)
-  (car edge))
-(define (edge-location edge)
-  (cadr edge))
-
-;; functions to find rooms
-(define (find-room id)
-  "Find a room by id"
-  (cadr (or (assq id *rooms*) '(#f #f))))
-
-(define (add-room! new-id room)
-  "Add a previous room with the new id"
-  (set! *rooms* (cons (list new-id room)
-                      *rooms*)))
-
-;; map function
-(define (make-dot rooms)
-  (let ((ids (map car rooms))
-        (rooms (map cadr rooms)))
-    (define (sym->dotname sym)
-      (list->string
-       (map (lambda (c)
-              (if (or (char-alphabetic? c)
-                      (char-numeric? c))
-                  c
-                  #\_))
-            (string->list (symbol->string sym)))))
-
-    ;; open the directed graph
-    (format #t "digraph {~%")
-    ;; print the nodes
-    (for-each (lambda (id room)
-                (format #t "~a[label=\"~a\"];~%"
-                        (sym->dotname id)
-                        (room-description room)))
-              ids rooms)
-    ;; print the edges
-    (for-each (lambda (id room)
-                (let ((src (sym->dotname id)))
-                  (for-each (lambda (edge)
-                              (format #t "~a -> ~a [label=\"~a\"];~%"
-                                      src
-                                      (sym->dotname (edge-location edge))
-                                      (edge-direction edge)))
-                            (room-exits room))))
-              ids rooms)
-    ;; close the directed graph
-    (format #t "}~%")))
-
-;; item record definition
-(define-record-type item
-  (fields name
-          (mutable location)
-          (mutable value)))
-
-(define (item-in-backpack? item)
-  (eq? (item-location item) 'backpack))
-
-;; syntax-rule to make a new item without quoting
-(define-syntax new-item
-  (syntax-rules ()
-    ((_ id name location value)
-     `(id ,(make-item name 'location value)))))
+(define *nodes*
+  '((dark-corner
+     "dark corner"
+     (south corner-of-house)
+     (east overgrown-garden))
+
+    (overgrown-garden
+     "overgrown garden"
+     (west dark-corner)
+     (east large-woodpile))
+
+    (large-woodpile
+     "large woodpile"
+     (west overgrown-garden)
+     (east yard-by-rubbish))
+
+    (yard-by-rubbish
+     "yard by rubbish"
+     (south scullery-door)
+     (west large-woodpile)
+     (east weedpatch))
+
+    (weedpatch
+     "weedpatch"
+     (west yard-by-rubbish)
+     (east forest))
+
+    (forest
+     "forest"
+     (west weedpatch)
+     (east thick-forest))
+
+    (thick-forest
+     "thick forest"
+     (south clearing-by-house)
+     (west forest)
+     (east blasted-tree))
+
+    (blasted-tree
+     "blasted tree"
+     (south path)
+     (west thick-forest))
+
+    (corner-of-house
+     "corner of house"
+     (north dark-corner)
+     (south side-of-house))
+
+    (entrance-to-kitchen
+     "entrance to kitchen"
+     (south back-of-hallway)
+     (east kitchen))
+
+    (kitchen
+     "kitchen and grimy cooker"
+     (west entrance-to-kitchen)
+     (east scullery-door))
+
+    (scullery-door
+     "scullery door"
+     (north yard-by-rubbish)
+     (west kitchen))
+
+    (room-with-dust
+     "room with inches of dust"
+     (east rear-turret-room)
+     (down bottom-staircase))
+
+    (rear-turret-room
+     "rear turret room"
+     (west room-with-dust))
+
+    (clearing-by-house
+     "clearing by house"
+     (north thick-forest)
+     (east path))
+
+    (path
+     "path"
+     (north blasted-tree)
+     (south clifftop)
+     (west clearing-by-house))
+
+    (side-of-house
+     "side of the house"
+     (north corner-of-house)
+     (south crumbling-wall))
+
+    (back-of-hallway
+     "back of the hallway"
+     (north entrance-to-kitchen)
+     (south gloomy-passage))
+
+    (dark-alcove
+     "dark alcove"
+     (south pool-of-light)
+     (east small-dark-room))
+
+    (small-dark-room
+     "small dark room"
+     (west dark-alcove)
+     (east bottom-staircase))
+
+    (bottom-staircase
+     "bottom of a spiral staircase"
+     (west small-dark-room)
+     (up room-with-dust))
+
+    (wide-passage
+     "wide passage"
+     (south trophy-room)
+     (east slippery-steps))
+
+    (slippery-steps
+     "slippery steps"
+     (south barred-cellar)
+     (west wide-passage)
+     (up wide-passage)
+     (down barred-cellar))
+
+    (clifftop
+     "clifftop"
+     (north path)
+     (south cliff-path-1))
+
+    (crumbling-wall
+     "near a crumbling wall"
+     (north side-of-house))
+
+    (gloomy-passage
+     "gloomy passage"
+     (north back-of-hallway)
+     (south front-hall))
+
+    (pool-of-light
+     "pool of light"
+     (north dark-alcove)
+     (south sitting-room)
+     (east vaulted-hallway))
+
+    (vaulted-hallway
+     "impressive vaulted hallway"
+     (west pool-of-light)
+     (east thick-door))
+
+    (thick-door
+     "hall by thick wooden door"
+     (west vaulted-hallway)
+     (east trophy-room))
+
+    (trophy-room
+     "trophy room"
+     (north wide-passage)
+     (south dining-room)
+     (west thick-door))
+
+    (barred-cellar
+     "cellar with barred window"
+     (north slippery-steps)
+     (south coffin-cellar))
+
+    (cliff-path-1
+     "cliff path"
+     (north clifftop)
+     (south cliff-path-2))
+
+    (cupboard
+     "cupboard with hanging coat"
+     (south closet))
+
+    (front-hall
+     "front hall"
+     (north gloomy-passage)
+     (south front-lobby)
+     (east sitting-room))
+
+    (sitting-room
+     "sitting room"
+     (north pool-of-light)
+     (south evil-library)
+     (west front-hall))
+
+    (secret-room
+     "secret room"
+     (south study))
+
+    (marble-stairs
+     "steep marble stairs"
+     (north thick-door)
+     (south cobwebby-room)
+     (up cobwebby-room)
+     (down thick-door))
+
+    (dining-room
+     "dining room"
+     (north trophy-room))
+
+    (coffin-cellar
+     "deep cellar with coffin"
+     (north barred-cellar))
+
+    (cliff-path-2
+     "cliff path"
+     (north cliff-path-1)
+     (south cliff-path-3))
+
+    (closet
+     "closet"
+     (north cupboard)
+     (east front-lobby))
+
+    (front-lobby
+     "front lobby"
+     (north front-hall)
+     (west closet))
+
+    (evil-library
+     "library of evil books"
+     (north sitting-room)
+     (east study))
+
+    (study
+     "study with desk and hole in the wall"
+     (west evil-library))
+
+    (cobwebby-room
+     "weird cobwebby room"
+     (north marble-stairs)
+     (south upper-gallery)
+     (east cold-chamber))
+
+    (cold-chamber
+     "very cold chamber"
+     (west cobwebby-room)
+     (east spooky-room))
+
+    (spooky-room
+     "spooky room"
+     (west cold-chamber))
+
+    (cliff-path-3
+     "cliff path by marsh"
+     (north cliff-path-2)
+     (south soggy-path))
+
+    (verandah
+     "rubble-strewn verandah"
+     (south twisted-railings)
+     (east front-porch))
+
+    (front-porch
+     "front porch"
+     (north front-lobby)
+     (south iron-gate-path)
+     (west verandah))
+
+    (front-tower
+     "front tower"
+     (east sloping-corridor))
+
+    (sloping-corridor
+     "sloping corridor"
+     (west front-tower)
+     (east upper-gallery))
+
+    (upper-gallery
+     "upper gallery"
+     (north cobwebby-room)
+     (west sloping-corridor))
+
+    (marsh-by-wall
+     "marsh by wall"
+     (south fallen-brickwork))
+
+    (marsh
+     "marsh"
+     (south stone-arch)
+     (west marsh-by-wall))
+
+    (soggy-path
+     "soggy path"
+     (north cliff-path-3)
+     (west marsh))
+
+    (twisted-railings
+     "by twisted railings"
+     (north verandah)
+     (east iron-gate-path))
+
+    (iron-gate-path
+     "path through iron gate"
+     (north front-porch)
+     (west twisted-railings)
+     (east railings))
+
+    (railings
+     "by railings"
+     (west iron-gate-path)
+     (east beneath-front-tower))
+
+    (beneath-front-tower
+     "beneath the front tower"
+     (west railings)
+     (east debris))
+
+    (debris
+     "debris from crumbling facade"
+     (west beneath-front-tower)
+     (east fallen-brickwork))
+
+    (fallen-brickwork
+     "large fallen brickwork"
+     (north marsh-by-wall)
+     (west debris)
+     (east stone-arch))
+
+    (stone-arch
+     "rotten stone arch"
+     (north marsh)
+     (west fallen-brickwork)
+     (east crumbling-clifftop))
+
+    (crumbling-clifftop
+     "crumbling clifftop"
+     (west stone-arch))
+
+    (closed-front-porch
+     "front porch"
+     (north front-lobby)
+     (south iron-gate-path)
+     (west verandah))
+
+    ;; NOTE: connected to barred-cellar after digging the bars
+    (hole-in-wall
+     "hole in the wall"
+     (north slippery-steps)
+     (south coffin-cellar)
+     (east cliff-path-1))
+
+    ;; NOTE: connected to study after swinging the axe
+    (study-secret-room
+     "study with secret room"
+     (north secret-room)
+     (west evil-library))
+
+    ;; NOTE: connected to thick-door after unlocking the door
+    (huge-open-door
+     "Huge open door"
+     (south marble-stairs)
+     (west vaulted-hallway)
+     (east trophy-room))))
 
 ;; items association list
 (define *items*
-  (list (new-item painting "painting" spooky-room #f)
-        (new-item ring "ring" coffin-cellar #t)
-        (new-item spells "magic spells" secret-room #f)
-        (new-item goblet "goblet" front-tower #f)
-        (new-item scrooll "scroll" rear-turret-room #f)
-        (new-item coins "coins" dark-alcove #f)
-        (new-item statue "statue" thick-door #f)
-        (new-item candlestick "candlestick" evil-library #f)
-        (new-item matches "matches" kitchen #f)
-        (new-item vacuum "vacuum" gloomy-passage #f)
-        (new-item batteries "batteries" pool-of-light #f)
-        (new-item shovel "shovel" weedpatch #f)
-        (new-item axe "axe" large-woodpile #f)
-        (new-item rope "rope" blasted-tree #f)
-        (new-item boat "boat" cliff-path-3 #f)
-        (new-item aerosol "aerosol" debris #f)
-        (new-item candle "candle" study #t)
-        (new-item key "key" cupboard #t)
-        (new-item north "north" #f #f)
-        (new-item south "south" #f #f)
-        (new-item west "west" #f #f)
-        (new-item east "east" #f #f)
-        (new-item up "up" #f #f)
-        (new-item down "down" #f #f)
-        (new-item door "door" #f #f)
-        (new-item bats "bats" #f #f)
-        (new-item ghosts "ghosts" #f #f)
-        (new-item drawer "drawer" #f #f)
-        (new-item desk "desk" #f #f)
-        (new-item coat "coat" #f #f)
-        (new-item rubbish "rubbish" #f #f)
-        (new-item coffin "coffin" #f #f)
-        (new-item books "books" #f #f)
-        (new-item xzanfar "xzanfar" #f #f)
-        (new-item wall "wall" #f #f)))
+  '((painting "painting" spooky-room)
+    (ring "ring" coffin-cellar hidden)
+    (spells "magic spells" secret-room)
+    (goblet "goblet" front-tower)
+    (scroll "scroll" rear-turret-room)
+    (coins "coins" dark-alcove)
+    (statue "statue" thick-door)
+    (candlestick "candlestick" evil-library)
+    (matches "matches" kitchen)
+    (vacuum "vacuum" gloomy-passage)
+    (batteries "batteries" pool-of-light)
+    (shovel "shovel" weedpatch)
+    (axe "axe" large-woodpile)
+    (rope "rope" blasted-tree)
+    (boat "boat" cliff-path-3)
+    (aerosol "aerosol" debris)
+    (candle "candle" study hidden)
+    (key "key" cupboard hidden)))
 
-;; functions to find items
-(define (find-item id)
-  "Return the first item with the given id"
-  (cadr (or (assq id *items*) '(#f #f))))
+(define *words*
+  '((bats "bats")
+    (books "books")
+    (coat "coat")
+    (coffin "coffin")
+    (desk "desk")
+    (door "door")
+    (drawer "drawer")
+    (ghosts "ghosts")
+    (rubbish "rubbish")
+    (spells "spells")
+    (walls "walls")
+    (xzanfar "xzanfar")))
 
-(define (find-item-by-name name)
-  "Return the first pair (id, item) where the item has the given name"
-  (let loop ((items *items*))
-    (cond ((null? items) '(#f #f))
-          ((equal? (item-name (cadar items)) name)
-           (car items))
-          (else
-           (loop (cdr items))))))
+(define *verbs*
+  '((climb "climb")
+    (down "d")
+    (dig "dig")
+    (down "down")
+    (drop "drop")
+    (east "e")
+    (east "east")
+    (examine "ex")
+    (examine "exa")
+    (examine "examine")
+    (exit "exit")
+    (get "get")
+    (help "help")
+    (inventory "i")
+    (inventory "inv")
+    (inventory "inventory")
+    (light "light")
+    (load "load")
+    (north "n")
+    (north "north")
+    (open "open")
+    (read "read")
+    (south "s")
+    (save "save")
+    (say "say")
+    (score "score")
+    (spray "spray")
+    (swing "swing")
+    (up "u")
+    (unlight "unlight")
+    (unlock "unlock")
+    (up "up")
+    (use "use")
+    (west "w")
+    (west "west")))
 
-(define (find-items-by-location location)
-  "Return the list of items at a given location"
-  (filter (lambda (item)
-            (eq? (item-location item) location))
-          (map cadr *items*)))
+;; location functions
+(define (find-location id)
+  (or (assq id *player-nodes*)
+      (assq id *nodes*)))
 
-;; self check routines
-(define (room-check rooms)
-  "Consistency check for the rooms"
-  (for-each (lambda (id room)
-              ;; connectivity check
-              (for-each (lambda (edge)
-                          (when (not (assq (edge-location edge) rooms))
-                            (format #t "WARNING: room \"~a\" has a broken edge: ~a~%"
-                                    (room-description room)
-                                    edge)))
-                        (room-exits room))
-              ;; duplicated id check
-              (when (not (eq? (cadr (assq id rooms))
-                              room))
-                (format #t "WARNING: room \"~a\" with already used id '~a~%"
-                        (room-description room)
-                        id)))
-            (map car rooms)
-            (map cadr rooms)))
+(define (location-name id)
+  (let ((loc (find-location id)))
+    (and loc (cadr loc))))
 
-(define (item-check items rooms)
-  "Consistency check for the items"
-  (for-each (lambda (id item)
-              ;; check the if the location of the item is valid
-              (when (and (item-location item)
-                         (not (assq (item-location item) rooms)))
-                (format #t "WARNING: object \"~a\" with unknown location: ~a~%"
-                        (item-name item)
-                        (item-location item)))
-              ;; check if the item id was already used
-              (when (not (eq? (cadr (assq id items))
-                              item))
-                (format #t "WARNING: item \"~a\" with already used id '~a~%"
-                        (item-name item)
-                        id)))
-            (map car items)
-            (map cadr items)))
+(define (location-edges id)
+  (let ((loc (find-location id)))
+    (and loc (cddr loc))))
 
-;; player variables
-(define *location* 'iron-gate-path)
-(define *light-on* #f)
-(define *light-time* 60)
-(define *exit* #f)
+(define (replace-location! old-id new-id)
+  (let ((old (find-location old-id))
+        (new (find-location new-id)))
+    (cond ((and old new)
+           (set! *player-nodes* (cons (cons old-id (cdr new))
+                                      *player-nodes*))
+           #t)
+          (else #f))))
 
-(define (handle-help room verb words)
-  (format #f "Words i know:~%~{~a~%~}"
-          (map car *allowed-commands*)))
+;; item functions
+(define (item-name id)
+  (let ((item (assq id *items*)))
+    (and item (cadr item))))
 
-(define (handle-inventory room verb words)
-  (let ((items (map item-name (find-items-by-location 'backpack))))
-    (cond ((null? items)
-           "You are carrying nothing.")
-          (else
-           (format #f "You are carrying: ~{~a~^, ~}." items)))))
+(define (item-location id)
+  (hashtable-ref *item-locations* id #f))
 
-(define (handle-go room verb words)
-  (let ((next (assq verb (room-exits room))))
-    (cond ((and (eq? *location* 'blasted-tree)
-                (item-value (find-item 'rope)))
-           (item-value-set! (find-item 'rope) #f)
-           "CRASH!!! You fell out of the tree")
-          ((and (eq? *location* 'cobwebby-room)
-                (item-value (find-item 'ghosts)))
+(define (item-location-set! item-id loc-id)
+  (hashtable-set! *item-locations* item-id loc-id))
+
+(define (item-hidden? id)
+  (hashtable-ref *item-hidden* id #f))
+
+(define (item-hidden-set! id value)
+  (hashtable-set! *item-hidden* id value))
+
+(define (item-in-backpack? id)
+  (eq? (item-location id) 'backpack))
+
+(define (is-item? id)
+  (and (assq id *items*) #t))
+
+(define (items-at loc-id)
+  (filter (lambda (item-id)
+            (eq? (item-location item-id) loc-id))
+          (map car *items*)))
+
+;; string functions
+(define (search-string str lst)
+  (cond ((null? lst) #f)
+        ((equal? (cadr (car lst)) str)
+         (car (car lst)))
+        (else
+         (search-string str (cdr lst)))))
+
+(define (find-word str)
+  (or (search-string str *items*)
+      (search-string str *words*)))
+
+(define (find-verb str)
+  (search-string str *verbs*))
+
+;; misc functions
+(define (random-choice lst)
+  (list-ref lst (random (length lst))))
+
+;; verb handlers
+(define (handle-help loc word wordstr default)
+  (format #f "Words i know: ~{~a~^, ~}"
+          (map cadr *verbs*)))
+
+(define (handle-inventory loc word wordstr default)
+  (let ((items (map item-name (items-at 'backpack))))
+    (if (null? items)
+        "You are carrying nothing."
+        (format #f "You are carrying ~{~a~^, ~}." items))))
+
+(define (handle-go loc dir wordstr default)
+  (let* ((entry (assq dir (location-edges loc)))
+         (next (and entry (cadr entry))))
+    (cond ((and (eq? loc 'blasted-tree)
+                *top-of-tree*)
+           (set! *top-of-tree* #f)
+           "CRASH!!! You fell out of the tree.")
+          ((and (eq? loc 'cobwebby-room)
+                *ghosts-appear*)
            "Ghosts will not let you move!")
-          ((and (eq? *location* 'cold-chamber)
+          ((and (eq? loc 'cold-chamber)
+                (eq? dir 'west)
                 (item-in-backpack? (find-item 'painting))
-                (item-value (find-item 'xzanfar)))
-           "A magical barrier to the west")
-          ((and (eq? *location* 'pool-of-light)
-                (not *light-on*)
-                (or (eq? verb 'north)
-                    (eq? verb 'east)))
-           "You need a light")
-          ((and (eq? *location* 'marsh)
-                (not (item-in-backpack? (find-item 'boat))))
-           "You are stuck")
-          ((and (not (or (eq? *location* 'cliff-path-3)
-                         (eq? *location* 'marsh-by-wall)
-                         (eq? *location* 'marsh)
-                         (eq? *location* 'soggy-path)))
-                (item-in-backpack? (find-item 'boat)))
-           "You can't carry the boat")
-          ((and (or (eq? *location* 'valuted-hallway)
-                    (eq? *location* 'thick-door)
-                    (eq? *location* 'trophy-room))
-                (not *light-on*))
+                *spell-discovered*)
+           "A magical barrier to the west.")
+          ((and (eq? loc 'pool-of-light)
+                (not *candle-lit*)
+                (or (member dir '(north east))))
+           "You need a light.")
+          ((and (eq? loc 'marsh)
+                (not (item-in-backpack? 'boat)))
+           "You are stuck.")
+          ((and (member loc '(cliff-path-3 marsh-by-wall marsh soggy-path))
+                (item-in-backpack? 'boat))
+           "You can't carry the boat.")
+          ((and (member loc '(valuted-hallway thick-door trophy-room))
+                (not *candle-lit*))
            "Too dark to move")
+          ((and (eq? next 'front-lobby)
+                (eq? dir 'north))
+           (set! *current-location* next)
+           (set! *front-door-open* #f)
+           (replace-location! 'front-porch 'closed-front-porch)
+           "The door slams shut!")
           (next
-           (set! *location* (edge-location next))
-           "OK")
+           (set! *current-location* next)
+           "OK.")
           (else
-           "You can't go that way"))))
+           "You can't go that way."))))
 
-(define (handle-get room verb words)
-  (let ((item (cadr (find-item-by-name words))))
-    (cond ((or (not item) (item-value item))
-           (format #f "What ~a?" words))
-          ((item-in-backpack? item)
-           "You already have it")
-          ((not (eq? (item-location item) *location*))
-           "It isn't here")
-          (else
-           (item-location-set! item 'backpack)
-           (format #f "You have the ~a" words)))))
-
-(define (handle-open room verb word)
-  (cond ((and (eq? *location* 'study)
-              (or (equal? word "drawer")
-                  (equal? word "desk")))
-         (item-value-set! (find-item 'candle) #f)
-         "Drawer open")
+(define (handle-get loc item itemstr default)
+  (cond ((or (not (is-item? item))
+             (item-hidden? item))
+         (format #f "What ~a?" itemstr))
+        ((item-in-backpack? item)
+         "You already have it.")
+        ((eq? (item-location item) loc)
+         (item-location-set! item 'backpack)
+         (format #f "You have the ~a." (item-name item)))
         (else
-         "You can't open it.")))
+         "It isn't here.")))
 
-(define (handle-examine room verb word)
-  (cond ((and (eq? *location* 'study)
-              (or (equal? word "drawer")
-                  (equal? word "desk")))
-         "There is a drawer")
-        ((or (equal? word "books")
-             (equal? word "scroll"))
-         (handle-read room verb word))
+(define (handle-open loc word wordstr default)
+  (cond ((and (eq? loc 'study)
+              (member word '(drawer desk)))
+         (item-hidden-set! 'candle #f)
+         "Drawer open.")
+        ((and (eq? loc 'thick-door)
+              (eq? word 'door))
+         "It's locked.")
+        ((and (eq? loc 'coffin-cellar)
+              (eq? word 'coffin))
+         (item-hidden-set! 'ring #f)
+         "That's creepy.")
         (else
-         "You cannot examine that.")))
+         default)))
 
-(define (handle-read room verb word)
-  (cond ((and (or (equal? word "spells")
-                  (equal? word "magic spells"))
-              (item-in-backpack? (find-item 'spells))
-              (not (item-value (find-item 'xzanfar))))
-         "Say this word with care 'xzanfar'")
-        ((and (equal? word "scroll")
-              (item-in-backpack? (find-item 'scroll)))
+(define (handle-examine loc word wordstr default)
+  (cond ((and (eq? loc 'cupboard)
+              (eq? word 'coat))
+         (item-hidden-set! 'key #f)
+         "Something here!")
+        ((and (eq? loc 'yard-by-rubbish)
+              (eq? word 'rubbish))
+         "That's disgusting.")
+        ((and (eq? loc 'study)
+              (member word '(drawer desk)))
+         "There is a drawer.")
+        ((and (eq? loc 'study)
+              (eq? word 'wall))
+         "There is something beyond...")
+        ((member word '(books scroll spells magic-spells))
+         (handle-read loc word wordstr default))
+        ((eq? word 'coffin)
+         (handle-open loc word wordstr default))
+        (else
+         default)))
+
+(define (handle-read loc word wordstr default)
+  (cond ((and (eq? loc 'evil-library)
+              (eq? word 'books))
+         "They are demonic works.")
+        ((and (member word '(spells magic-spells))
+              (item-in-backpack? 'magic-spells)
+              (not *spell-discovered*))
+         (set! *spell-discovered* #t)
+         "Say this word with care 'xzanfar'.")
+        ((eq? word scroll)
          "The script is in an alien tongue")
         (else
-         "You cannot read it.")))
+         default)))
 
-(define (random-choice lst)
-    (list-ref lst (random (length lst))))
-
-(define (handle-say room verb word)
-  (cond ((or (not (equal? word "xzanfar"))
-             (not (item-in-backpack? (find-item 'spells))))
-         (format #f "Ok, '~a'." word))
+(define (handle-say loc word wordstr default)
+  (cond ((or (not (eq? word 'xzanfar))
+             (not *spell-discovered*))
+         (format #f "Ok, '~a'." wordstr))
         (else
-           (if (not (eq? *location* 'cold-chamber))
-               (set! *location* (random-choice (map car *rooms*)))
-               (item-value-set! (find-item 'xzanfar) #t))
-           "*** Magic Occurs ***")))
+         (when (not (eq? loc 'cold-chamber))
+           (set! *current-location*
+             (random-choice (map car *nodes*))))
+         "*** Magic Occurs ***")))
 
-(define (handle-dig room verb word)
-  (let ((shovel (find-item 'shovel)))
-    (cond ((not (item-in-backpack? shovel))
-           "You can't dig with bare hands.")
-          (else
-           "You made a hole."))))
+(define (handle-dig loc word wordstr default)
+  (cond ((and (eq? loc 'barred-cellar)
+             (item-in-backpack? 'shovel))
+         (replace-location! 'barred-cellar 'hole-in-wall)
+         "Dug the bars out.")
+        ((item-in-backpack? 'shovel)
+         "You made a hole.")
+        (else
+         default)))
 
-(define (handle-swing room verb word)
-  (cond ((equal? word "rope")
-         (let ((rope (find-item 'rope)))
-           (cond ((and (eq? *location* 'blasted-tree)
-                       (not (item-in-backpack? rope)))
-                  "This is no time to play games.")
-                 ((item-in-backpack? rope)
-                  "You swung it.")
-                 (else
-                  "No rope to swing."))))
-        ((equal? word "axe")
-         (cond ((item-in-backpack? (find-item 'axe))
-                "WHOOSH!")
-               (else
-                "No axe to swing.")))
-        (else #f)))
+(define (handle-swing loc word wordstr default)
+  (cond ((and (eq? loc 'blasted-tree)
+              (not (item-in-backpack? 'rope)))
+         "This is no time to play games.")
+        ((and (eq? word 'rope)
+              (item-in-backpack? 'rope))
+         "You swung it.")
+        ((and (eq? loc 'study)
+              (eq? word 'axe)
+              (item-in-backpack? word))
+         (replace-location! 'study 'study-secret-room)
+         "You broke the thin wall.")
+        ((and (eq? word 'axe)
+              (item-in-backpack? word))
+         "WHOOSH!")
+        (else
+         default)))
 
-(define (handle-climb room verb word)
-  (let ((rope (find-item 'rope)))
-    (cond ((not (equal? word "rope"))
-           "You can't do that.")
-          ((item-in-backpack? rope)
-           "It isn't attached to anything!")
-          ((item-value rope)
-           (item-value-set! rope #f)
-           "Going down.")
-          (else
-           (item-value-set! rope #t)
-           "You see a thick forest and a cliff at south."))))
+(define (handle-climb loc word wordstr default)
+  (cond ((and (eq? word 'rope)
+              (item-in-backpack? word))
+         "It isn't attached to anything!")
+        ((and (eq? word 'rope)
+              (not (item-in-backpack? word))
+              (eq? loc 'blasted-tree)
+              (not *top-of-tree*))
+         (set! *top-of-tree* #t)
+         "You see thick forest and cliff south.")
+        ((and (eq? word 'rope)
+              (not (item-in-backpack? word))
+              (eq? loc 'blasted-tree)
+              *top-of-tree*)
+         (set! *top-of-tree* #f)
+         "Going down!")
+        (else
+         default)))
 
-(define (handle-light room verb word)
-  (cond ((not (equal? word "candle"))
-         "Light what?")
-        ((not (item-in-backpack? (find-item 'candle)))
-         "No candle to light.")
-        ((not (item-in-backpack? (find-item 'matches)))
+(define (handle-light loc item itemstr default)
+  (cond ((or (not (eq? item 'candle))
+             (not (item-in-backpack 'candle)))
+         default)
+        ((not (item-in-backpack? 'matches))
          "Nothing to light it with.")
-        ((not (item-in-backpack? (find-item 'candlestick)))
+        ((not (item-in-backpack? 'candlestick))
          "It would burn your hands!")
         (else
-         (set! *light-on* #t)
+         (set! *candle-lit* #t)
          "It casts a flickering light.")))
 
-(define (handle-unlight room verb word)
-  (cond (*light-on*
-         (set! *light-on* #f)
+(define (handle-unlight loc item itemstr default)
+  (cond (*candle-lit*
+         (set! *candle-lit* #f)
          "Extinguished.")
         (else
-         "The light is already off.")))
+         default)))
 
-(define (handle-spray room verb word)
-  (let ((bats (find-item 'bats)))
-    (cond ((not (item-in-backpack? (find-item 'aerosol)))
-           "You can't spray anything.")
-          ((and (not (equal? word "bats"))
-                (not (item-value bats)))
-           "HISS...")
-          (else
-           (item-value-set! bats #f)
-           "Pfft! Got them."))))
-
-(define (handle-use room verb word)
-  (cond ((and (equal? word "vacuum")
-              (item-in-backpack? (find-item 'vacuum)))
-         (let ((ghosts (find-item 'ghosts)))
-           (cond ((not (item-in-backpack? (find-item 'batteries)))
-                  "No batteries for the vacuum.")
-                 ((and (eq? *location* 'cobwebby-room)
-                       (item-value ghosts))
-                  (item-value-set! ghosts #f)
-                  (item-value-set! (find-item 'down) #t)
-                  "WHIZZ - Vacuumed the ghosts up!")
-                 (else
-                  "Nothing to vacuum."))))
+(define (handle-spray loc word wordstr default)
+  (cond ((and (eq? word 'aerosol)
+              (item-in-backpack? word)
+              *bats-present*)
+         (set! *bats-present* #f)
+         "PFFT! Got them.")
+        ((and (eq? word 'aerosol)
+              (item-in-backpack? word))
+         "HISSSS...")
         (else
-         (format #f "You cannot ~a ~a." verb word))))
+         default)))
 
-(define (handle-drop room verb word)
-  (let ((item (find-item-by-name word)))
-    (cond ((not item)
-           "Cannot find it.")
-          ((item-in-backpack? item)
-           "Done.")
-          (else
-           "You don't carry that object."))))
+(define (handle-use loc item itemstr default)
+  (cond ((and (eq? item 'vacuum)
+              (item-in-backpack? 'vacuum)
+              (item-in-backpack? 'batteries))
+         (set! *vacuum-on* #t)
+         (cond (*ghosts-appear*
+                (set! *ghosts-appear #f)
+                "WHIZZ - Vacuumed the ghosts up!")
+               (else
+                "Switched on.")))
+        (t
+         default)))
 
-(define (handle-score room verb word)
-  (let ((score (length (find-items-by-location 'backpack))))
-    (cond ((not (equal? score 17))
+(define (handle-unlock loc word wordstr default)
+  (cond ((and (eq? loc 'study)
+              (member word '(drawer desk)))
+         (handle-open loc word wordstr default))
+        ((and (eq? loc 'thick-door)
+              (eq? word 'door)
+              (item-in-backpack? 'key))
+         "The key turns!")
+        (else
+         default)))
+
+(define (handle-drop loc item itemstr default)
+  (cond ((item-in-backpack? item)
+         (item-location-set! item loc)
+         "Done.")
+        (else
+         default)))
+
+(define (handle-score loc item itemstr default)
+  (let ((score (length (items-at 'backpack))))
+    (cond ((< score 17)
            (format #f "Your score is ~a." score))
-          ((eq? *location* 'iron-gate-path)
-           (set! *exit* #t)
+          ((eq? loc 'iron-gate-path)
+           (set! *quest-won* #t)
            (format #f "Double score for reaching here!~%Your score is ~a." (* 2 score)))
           (else
            (format #f "You have everything~%Return to the gate for the final score.")))))
-
-(define (handle-exit room verb word)
-  (set! *exit* #t)
-  "Bye!")
 
 ;; list of the allowed commands and their handler
 (define *allowed-commands*
@@ -817,148 +777,199 @@
     (spray ,handle-spray)
     (use ,handle-use)
     (drop ,handle-drop)
-    (score ,handle-score)
-    (exit ,handle-exit)))
+    (score ,handle-score)))
 
-(define *verb-aliases*
-  '((n north)
-    (s south)
-    (w west)
-    (e east)
-    (u up)
-    (d down)
-    (i inventory)
-    (carrying inventory)
-    (take get)
-    (leave drop)))
+(define (input prompt)
+  (display prompt)
+  (let ((line (get-line (current-input-port))))
+    (if (eof-object? line)
+        "exit"
+        line)))
 
-(define (get-handler verb commands)
-  (let ((record (assq verb commands)))
-    (or (and record (cadr record))
-        empty-handler)))
+(define (game-save filename)
+  (define (hashtable->alist ht)
+    (let-values (((keys values) (hashtable-entries ht)))
+      (filter cdr (map cons
+                       (vector->list keys)
+                       (vector->list values)))))
+  (define (writeln obj)
+    (write obj)
+    (newline))
 
-(define (string-split string char-delimiter?)
-  (define (maybe-add a b parts)
-    "Add a substring if a != b"
-    (cond ((= a b) parts)
-          (else
-           (cons (substring string a b)
-                 parts))))
+  (guard (con
+          ((error? con)
+           (display-condition con)
+           (newline)
+           #f)
+          (else #f))
+    (with-output-to-file filename
+      (lambda ()
+        (writeln (hashtable->alist *item-locations*))
+        (writeln (hashtable->alist *item-hidden*))
+        (writeln *player-nodes*)
+        (writeln *current-location*)
+        (writeln *front-door-open*)
+        (writeln *candle-lit*)
+        (writeln *candle-time*)
+        (writeln *top-of-tree*)
+        (writeln *bats-present*)
+        (writeln *ghosts-appear*)
+        (writeln *vacuum-on*)
+        (writeln *spell-discovered*)
+        (writeln *quest-won*)
+        #t)
+      'replace)))
 
-  (let ((length (string-length string)))
-    (let loop ((a 0) (b 0) (parts '()))
-      (cond ((< b length)
-             (cond ((char-delimiter? (string-ref string b))
-                    (loop (+ b 1) (+ b 1)
-                          (maybe-add a b parts)))
-                   (else
-                    (loop a (+ b 1) parts))))
+(define (game-load filename)
+  (guard (con
+          ((error? con)
+           (display-condition con)
+           (newline)
+           #f)
+          (else #f)
+          )
+    (with-input-from-file filename
+      (lambda ()
+        (hashtable-clear! *item-locations*)
+        (for-each (lambda (kv)
+                    (hashtable-set! *item-locations* (car kv) (cdr kv)))
+                  (read))
+        (hashtable-clear! *item-hidden*)
+        (for-each (lambda (kv)
+                    (hashtable-set! *item-hidden* (car kv) (cdr kv)))
+                  (read))
+        (set! *player-nodes* (read))
+        (set! *current-location* (read))
+        (set! *front-door-open* (read))
+        (set! *candle-lit* (read))
+        (set! *candle-time* (read))
+        (set! *top-of-tree* (read))
+        (set! *bats-present* (read))
+        (set! *ghosts-appear* (read))
+        (set! *vacuum-on* (read))
+        (set! *spell-discovered* (read))
+        (set! *quest-won* (read))))
+    #t))
+
+(define (game-init)
+  (hashtable-clear! *item-locations*)
+  (hashtable-clear! *item-hidden*)
+  (for-each (lambda (item)
+              (let ((id (car item))
+                    (loc (caddr item))
+                    (hidden (if (member 'hidden (cdddr item)) #t #f)))
+                (hashtable-set! *item-locations* id loc)
+                (hashtable-set! *item-hidden* id hidden)))
+            *items*)
+  (set! *player-nodes* '())
+  (set! *current-location* 'iron-gate-path)
+  (set! *front-door-open* #t)
+  (set! *candle-lit* #f)
+  (set! *candle-time* 60)
+  (set! *top-of-tree* #f)
+  (set! *bats-present* #t)
+  (set! *ghosts-appear* #f)
+  (set! *vacuum-on* #f)
+  (set! *spell-discovered* #f)
+  (set! *quest-won* #f))
+
+(define (string-position string char)
+  (let ((len (string-length string)))
+    (let test-char ((n 0))
+      (cond ((= n len) #f)
+            ((char=? (string-ref string n) char) n)
             (else
-             (reverse (maybe-add a b parts)))))))
+             (test-char (+ n 1)))))))
 
-(define (make-query verb words)
-  (cons verb  words))
-(define (query-verb cmd)
-  (car cmd))
-(define (query-rest cmd)
-  (cdr cmd))
+(define (game-loop message)
+  (cond (*quest-won*
+         (display "HOOORRAAAY!")
+         (newline))
+        (else
+         (newline)
+         (newline)
+         (display "Haunted House") (newline)
+         (display "-------------") (newline)
+         (display "Your location") (newline)
+         (display (location-name *current-location*)) (newline)
+         (format #t "Exits: ~{~a~^, ~}~%"
+                 (map car
+                      (location-edges *current-location*)))
+         (for-each (lambda (item)
+                     (format #t "You can see ~a here.~%"
+                             (item-name item)))
+                   (filter (lambda (item)
+                             (not (item-hidden? item)))
+                           (items-at *current-location*)))
+         (display "=======================")
+         (newline)
+         (display message)
+         (newline)
+         (let* ((string (input "What will you do now? "))
+                (ws (string-position string #\space))
+                (verb (find-verb (if ws (substring string 0 ws) string)))
+                (row (assq verb *allowed-commands*))
+                (handler (and row (cadr row)))
+                (flags (if row (cddr row) '()))
+                (target (if ws (substring string (+ ws 1) (string-length string)) ""))
+                (word (or (find-word target)
+                          (find-word (string-append target "s"))))
+                (word (if (and (eq? handler handle-go) (not word))
+                          verb
+                          word)))
+           (cond ((eq? verb 'exit)
+                  (display "Bye...")
+                  (newline))
+                 ((eq? verb 'save)
+                  (let ((filename (input "Please enter the filename: ")))
+                    (game-loop (if (game-save filename)
+                                   "Ok, carry on."
+                                   "Cannot save the game."))))
+                 ((eq? verb 'load)
+                  (let ((filename (input "Please enter the filename: ")))
+                    (game-loop (if (game-load filename)
+                                   "Ok, carry on."
+                                   "Cannot load the game."))))
+                 ((and verb (not handler))
+                  (format #t "ERROR: missing handler for verb ~a~%" verb))
+                 ((and (not verb) (not word))
+                  (game-loop "You don't make sense."))
+                 ((not handler)
+                  (game-loop (format #f "You can't '~a'." string)))
+                 ((and *bats-present*
+                       (eq? *current-location* 'rear-turret-room)
+                       (not (= (random 3) 0))
+                       (not (eq? verb 'spray)))
+                  (game-loop "Bats attacking!"))
+                 (else
+                  (when (and (eq? *current-location* 'cobwebby-room)
+                             (= (random 2) 0)
+                             (not *vacuum-on*))
+                    (set! *ghosts-appear* #t))
 
-(define (resolve-alias verb)
-  (let ((alias (assq verb *verb-aliases*)))
-    (cond ((not alias) verb)
-          (else
-           (resolve-alias (cadr alias))))))
+                  (when *candle-lit*
+                    (set! *candle-time* (- *candle-time* 1))
+                    (when (= *candle-time* 0)
+                      (set! *candle-lit* #f)))
 
-(define (parse-query string)
-  (let ((length (string-length string)))
-    (if (and (> length 0)
-             (eq? (string-ref string 0) #\'))
-        ;; NOTE: special handling for 'words -> 'say words
-        (make-query 'say (substring string 1 length))
-        (let parse-list ((strlist (string-split string char-whitespace?)))
-          (cond ((null? strlist)
-                 (make-query #f ""))
-                ;; NOTE: special handling for the go command: it's basically
-                ;; ignored and the next token is used as a verb. So go north
-                ;; becomes simply north.
-                ((and (equal? (car strlist) "go")
-                      (not (null? (cdr strlist))))
-                 (parse-list (cdr strlist)))
-                (else
-                 (make-query (resolve-alias (string->symbol (car strlist)))
-                             (format #f "~{~a~^ ~}" (cdr strlist)))))))))
+                  (let* ((default (cond ((not (item-in-backpack? word))
+                                         (format #f "You don't have '~a'." target))
+                                        ((string=? target "")
+                                         "I need two words.")
+                                        ((not word)
+                                         "That's silly.")
+                                        (else
+                                         "What.")))
+                         (message (handler *current-location*
+                                           word
+                                           target
+                                           default)))
+                    (game-loop (cond ((= *candle-time* 10)
+                                      "Your candle is waning!")
+                                     ((= *candle-time* 1)
+                                      "Your candle is out!")
+                                     (else message))))))))))
 
-(define (game-read)
-  (let ((string (get-line (current-input-port))))
-    (cond ((string? string)
-           (parse-query string))
-          (else
-           '(exit "")))))
-
-(define (game-loop)
-  (unless *exit*
-    (let ((room (find-room *location*)))
-      ;; PRINT
-      ;; room description and exits
-      (format #t "Your location: ~a.~%" (room-description room))
-      (format #t "Exits: ~{~a~^, ~}~%" (map edge-direction (room-exits room)))
-
-      ;; visible items
-      (let ((visible-items (filter (lambda (item)
-                                     (not (item-value item)))
-                                   (find-items-by-location *location*))))
-        (when (not (null? visible-items))
-          (format #t "You see: ~{~a~^, ~}.~%"
-                  (map item-name visible-items))))
-
-      ;; candle status
-      (when *light-on*
-        (when (= *light-time* 10)
-          (format #t "Your candle is waning!~%"))
-        (when (= *light-time* 1)
-          (format #t "Your candle is out!~%")))
-
-      ;; READ
-      (format #t ">>> ")
-      (let* ((query (game-read))
-             (verb (query-verb query))
-             (rest (query-rest query))
-             (handler (get-handler verb *allowed-commands*)))
-
-        ;; EVAL
-        (cond ((not verb))
-              ((and (eq? *location* 'rear-turret-room)
-                    (not (item-value (find-item 'bats)))
-                    (not (eq? verb 'use))
-                    (= (random 3) 0))
-               ;; NOTE: bats prevent any command but 'use
-               (format #t "Bats attacking!~%"))
-              (else
-               ;; set ghosts with a 50% chance in cobwebby-room unless
-               ;; they have been vacuumed already
-               (when (and (eq? *location* 'cobwebby-room)
-                          (not (item-value (find-item 'down)))
-                          (= (random 2) 0))
-                 (item-value-set! (find-item 'ghosts) #t))
-
-               ;; update the light
-               (when *light-on*
-                 (set! *light-time* (- *light-time* 1))
-                 (when (= *light-time* 0)
-                   (set! *light-on* #f)))
-
-               ;; execute the command
-               (display (or ((room-handler room) room verb rest)
-                            (handler room verb rest)
-                            "You can't do that"))
-               (newline))))
-
-      ;; LOOP
-      (game-loop))))
-
-(room-check *rooms*)
-(item-check *items* *rooms*)
-(format #t "Haunted House~%")
-(format #t "-------------~%")
-(game-loop)
-(exit 0)
+(define (game-start)
+  (game-init)
+  (game-loop "OK."))
