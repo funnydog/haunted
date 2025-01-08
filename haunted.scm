@@ -345,9 +345,9 @@
      "crumbling clifftop"
      (west stone-arch))
 
+    ;; NOTE: replaces front-porch after entering the house
     (closed-front-porch
      "front porch"
-     (north front-lobby)
      (south iron-gate-path)
      (west verandah))
 
