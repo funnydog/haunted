@@ -510,8 +510,8 @@
 ;; verb handlers
 (defun handle-help (loc word wordstr default)
   ;; TODO: make a meaningful simple help instead of iterating words
-  (format nil "Words I know:~%~{~a~^~%~}"
-          (mapcar #'car *allowed-commands*)))
+  (format nil "Words I know: ~{~a~^, ~}."
+          (mapcar #'car *verbs*)))
 
 (defun handle-inventory (loc word wordstr default)
   (let ((items (mapcar #'item-name (items-at 'backpack))))
