@@ -621,7 +621,7 @@
          (set! *spell-discovered* #t)
          "Say this word with care 'xzanfar'.")
         ((eq? word scroll)
-         "The script is in an alien tongue")
+         "The script is in an alien tongue.")
         (else
          default)))
 
@@ -753,7 +753,7 @@
            (set! *quest-won* #t)
            (format #f "Double score for reaching here!~%Your score is ~a." (* 2 score)))
           (else
-           (format #f "You have everything~%Return to the gate for the final score.")))))
+           (format #f "You have everything, return to the gate for the final score.")))))
 
 ;; list of the allowed commands and their handler
 (define *allowed-commands*
