@@ -532,7 +532,7 @@
                 *spell-discovered*)
            "A magical barrier to the west.")
           ((and (eq loc 'pool-of-light)
-                (not *light-on*)
+                (not *candle-lit*)
                 (or (eq dir 'north)
                     (eq dir 'east)))
            "You need a light.")
@@ -543,7 +543,7 @@
                 (item-in-backpack 'boat))
            "You can't carry the boat.")
           ((and (find loc '(vaulted-hallway thick-door trophy-room))
-                (not *light-on*))
+                (not *candle-lit*))
            "Too dark to move.")
           (next
            (setf *current-location* next)
@@ -678,12 +678,12 @@
         ((not (item-in-backpack 'candlestick))
          "It would burn your hands!")
         (t
-         (setf *light-on* t)
+         (setf *candle-lit* t)
          "It casts a flickering light.")))
 
 (defun handle-unlight (loc item itemstr default)
-  (cond (*light-on*
-         (setf *light-on* nil)
+  (cond (*candle-lit*
+         (setf *candle-lit* nil)
          "Extinguished.")
         (t
          default)))
@@ -692,10 +692,10 @@
   (cond ((not (item-in-backpack 'aerosol))
          "You can't spray anthing.")
         ((and (not (eq word 'bats))
-              (not *bats-active*))
+              (not *bats-present*))
          "HISS...")
         (t
-         (setf *bats-active* nil)
+         (setf *bats-present* nil)
          "Pfft! Got them.")))
 
 (defun handle-use (loc item itemstr default)
@@ -705,7 +705,7 @@
                ((and (eq loc 'cobwebby-room)
                      *ghosts-appear*)
                 (setf *ghosts-appear* nil)
-                (setf *ghosts-vacuumed* t)
+                (setf *vacuum-on* t)
                 "WHIZZ - Vacuumed the ghosts up!")
                (t
                 default)))
@@ -786,12 +786,12 @@
                          (item-hidden ,@(hash-to-alist *item-hidden*))
                          (player-nodes ,@*player-nodes*)
                          (current-location ,*current-location*)
-                         (light-on ,*light-on*)
-                         (light-time ,*light-time*)
+                         (candle-lit ,*candle-lit*)
+                         (candle-time ,*candle-time*)
                          (top-of-tree ,*top-of-tree*)
-                         (bats-active ,*bats-active*)
+                         (bats-present ,*bats-present*)
                          (ghosts-appear ,*ghosts-appear*)
-                         (ghosts-vacuumed ,*ghosts-vacuumed*)
+                         (vacuum-on ,*vacuum-on*)
                          (spell-discovered ,*spell-discovered*)
                          (quest-won ,*quest-won*))))
             (write alist :stream out)
@@ -815,12 +815,12 @@
             (setf *item-hidden* (alist-to-hash (cdr (assoc 'item-hidden alist))))
             (setf *player-nodes* (cdr (assoc 'player-nodes alist)))
             (setf *current-location* (cadr (assoc 'current-location alist)))
-            (setf *light-on* (cadr (assoc 'light-on alist)))
-            (setf *light-time* (cadr (assoc 'light-time alist)))
+            (setf *candle-lit* (cadr (assoc 'candle-lit alist)))
+            (setf *candle-time* (cadr (assoc 'candle-time alist)))
             (setf *top-of-tree* (cadr (assoc 'top-of-tree alist)))
-            (setf *bats-active* (cadr (assoc 'bats-active alist)))
+            (setf *bats-present* (cadr (assoc 'bats-present alist)))
             (setf *ghosts-appear* (cadr (assoc 'ghosts-appear alist)))
-            (setf *ghosts-vacuumed* (cadr (assoc 'ghosts-vacuumed alist)))
+            (setf *vacuum-on* (cadr (assoc 'vacuum-on alist)))
             (setf *spell-discovered* (cadr (assoc 'spell-discovered alist)))
             (setf *quest-won* (cadr (assoc 'quest-won alist))))
           t)
@@ -841,12 +841,12 @@
         *items*)
   (setf *player-nodes* nil)
   (setf *current-location* 'iron-gate-path)
-  (setf *light-on* nil)
-  (setf *light-time* 60)
+  (setf *candle-lit* nil)
+  (setf *candle-time* 60)
   (setf *top-of-tree* nil)
-  (setf *bats-active* nil)
+  (setf *bats-present* nil)
   (setf *ghosts-appear* nil)
-  (setf *ghosts-vacuumed* nil)
+  (setf *vacuum-on* nil)
   (setf *spell-discovered* nil)
   (setf *quest-won* nil))
 
@@ -880,10 +880,10 @@
              (format t "You see: ~{~a~^, ~}.~%" (mapcar #'item-name items))))
 
          ;; update the candle status
-         (when *light-on*
-           (when (= *light-time* 10)
+         (when *candle-lit*
+           (when (= *candle-time* 10)
              (format t "Your candle is waning!~%"))
-           (when (= *light-time* 1)
+           (when (= *candle-time* 1)
              (format t "Your candle is out!~%")))
 
          (terpri)
@@ -921,28 +921,28 @@
                  ((not handler)
                   (game-loop "Try something else."))
                  ((and (eq *current-location* 'rear-turret-room)
-                       (not (find verb '(use say)))
-                       *bats-active*)
+                       (not (find verb '(use spray)))
+                       *bats-present*)
                   (game-loop "Bats attacking!"))
                  (t
                   ;; set bats with a 33% chance in the rear-turret-room
                   (when (and (eq *current-location* 'rear-turret-room)
-                             (not *bats-active*)
+                             (not *bats-present*)
                              (= (random 3) 0))
-                    (setf *bats-active* t))
+                    (setf *bats-present* t))
 
                   ;; set ghosts with a 50% chance in cobwebby-room unless
                   ;; they have been vacuumed already
                   (when (and (eq *current-location* 'cobwebby-room)
-                             (not *ghosts-vacuumed*)
+                             (not *vacuum-on*)
                              (= (random 2) 0))
                     (setf *ghosts-appear* t))
 
                   ;; update the light
-                  (when *light-on*
-                    (setf *light-time* (1- *light-time*))
-                    (when (= *light-time* 0)
-                      (setf *light-on* nil)))
+                  (when *candle-lit*
+                    (setf *candle-time* (1- *candle-time*))
+                    (when (= *candle-time* 0)
+                      (setf *candle-lit* nil)))
 
                   ;; execute the handler
                   (let ((default (if word "Pardon?" "I need two words.")))
