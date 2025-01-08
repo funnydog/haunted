@@ -8,7 +8,6 @@
 (define *current-location*)
 
 ;; game variables
-(define *front-door-open*  #t)          ; the front door is open
 (define *candle-lit*       #f)          ; the candle is lit
 (define *candle-time*      60)          ; candle time left
 (define *top-of-tree*      #f)          ; true if at the top of three
@@ -550,7 +549,6 @@
           ((and (eq? next 'front-lobby)
                 (eq? dir 'north))
            (set! *current-location* next)
-           (set! *front-door-open* #f)
            (replace-location! 'front-porch 'closed-front-porch)
            "The door slams shut!")
           (next
@@ -805,7 +803,6 @@
         (writeln (hashtable->alist *item-hidden*))
         (writeln *player-nodes*)
         (writeln *current-location*)
-        (writeln *front-door-open*)
         (writeln *candle-lit*)
         (writeln *candle-time*)
         (writeln *top-of-tree*)
@@ -835,7 +832,6 @@
         (alist->hashtable! (read) *item-hidden*)
         (set! *player-nodes* (read))
         (set! *current-location* (read))
-        (set! *front-door-open* (read))
         (set! *candle-lit* (read))
         (set! *candle-time* (read))
         (set! *top-of-tree* (read))
@@ -858,7 +854,6 @@
             *items*)
   (set! *player-nodes* '())
   (set! *current-location* 'iron-gate-path)
-  (set! *front-door-open* #t)
   (set! *candle-lit* #f)
   (set! *candle-time* 60)
   (set! *top-of-tree* #f)
