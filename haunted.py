@@ -5,6 +5,7 @@
 
 from typing import Callable
 
+import pickle
 import random
 
 WORDS = [
@@ -163,6 +164,9 @@ VERBS = [
     "UNLOCK",                                   # 23
     "LEAVE",                                    # 24
     "SCORE",                                    # 25
+    "SAVE",                                     # 26
+    "LOAD",                                     # 27
+    "QUIT",                                     # 28
 ]
 
 class World:
@@ -223,7 +227,7 @@ class World:
 
     def run(self) -> None:
         self.message = "OK"
-        while not self.game_end:
+        while True:
             print("HAUNTED HOUSE")
             print("-------------")
             print(f"YOUR LOCATION\n{ self.rooms[self.room] }")
@@ -233,6 +237,9 @@ class World:
                     print(f"I SEE { WORDS[item] } HERE.")
             print("="*26)
             print(self.message)
+
+            if self.game_end:
+                break
 
             query = input("WHAT WILL YOU DO NOW? ").upper()
             whitespace = query.find(" ")
@@ -251,6 +258,17 @@ class World:
                 ob = WORDS.index(word)
             except ValueError:
                 ob = 0
+
+            if vb == 26:        # save
+                self.message = self.save() and "OK, CARRY ON." or "OUTPUT ERROR"
+                continue
+            elif vb == 27:      # load
+                self.message = self.load() and "OK, CARRY ON." or "INPUT ERROR"
+                continue
+            elif vb == 28:      # quit
+                self.message = "BYE..."
+                self.game_end = True
+                continue
 
             self.message = "WHAT?"
             if word and not ob:
@@ -520,6 +538,57 @@ class World:
         if score>18:
             print("WELL DONE! YOU FINISHED THE GAME")
             self.game_end=True
+
+    def save(self) -> bool:
+        filename = input("PLEASE ENTER THE FILENAME: ")
+        try:
+            with open(filename, "wb") as out:
+                pickle.dump({
+                    "rooms": self.rooms,
+                    "exits": self.exits,
+                    "item-location": self.item_location,
+                    "item-hidden": self.item_hidden,
+                    "backpack": self.backpack,
+                    "room": self.room,
+                    "light-on": self.light_on,
+                    "light-time": self.light_time,
+                    "bats-attacking": self.bats_attacking,
+                    "vacumm-on": self.vacuum_on,
+                    "ghosts-present": self.ghosts_present,
+                    "top-of-tree": self.top_of_tree,
+                    "spell-discovered": self.spell_discovered,
+                    "front-door-shut": self.front_door_shut,
+                    "thick-door-open": self.thick_door_open,
+                    "game-end": self.game_end,
+                }, out)
+            return True
+        except:
+            return False
+
+    def load(self) -> bool:
+        filename = input("PLEASE ENTER THE FILENAME: ")
+        try:
+            with open(filename, "rb") as f:
+                dct = pickle.load(f)
+                self.rooms = dct.get("rooms")
+                self.exits = dct.get("exits")
+                self.item_location = dct.get("item-location")
+                self.item_hidden = dct.get("item-hidden")
+                self.backpack = dct.get("backpack")
+                self.room = dct.get("room")
+                self.light_on = dct.get("light-on")
+                self.light_time = dct.get("light-time")
+                self.bats_attacking = dct.get("bats-attacking")
+                self.vacuum_on = dct.get("vacuum_on")
+                self.ghosts_present = dct.get("ghosts-present")
+                self.top_of_tree = dct.get("top-of-tree")
+                self.spell_discovered = dct.get("spell-discovered")
+                self.front_door_shut = dct.get("front-door-shut")
+                self.thick_door_open = dct.get("thick-door-open")
+                self.game_end = dct.get("game-end")
+            return True
+        except:
+            return False
 
 if __name__ == "__main__":
     w = World()
