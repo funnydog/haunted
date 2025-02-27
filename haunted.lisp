@@ -343,7 +343,7 @@
      "crumbling clifftop"
      (west stone-arch))
 
-        (front-porch
+    (front-porch
      "front porch"
      (north front-lobby)
      (south iron-gate-path)
